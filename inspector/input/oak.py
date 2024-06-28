@@ -69,7 +69,7 @@ class Camera:
 
         self.pipeline = pipeline
 
-    def run(self):
+    def run(self, callback: any = None):
         """
         This is the application loop.
         """
@@ -107,6 +107,8 @@ class Camera:
                 scores = detection_scores[mask]
 
                 focus_frame = crop_and_resize_frame(frame, boxes)
+                if callback:
+                    focus_frame = callback(focus_frame)
 
                 # draw boxes
                 plot_boxes(frame, boxes, colors, scores)
