@@ -4,6 +4,7 @@ import numpy as np
 
 
 cached_frame = None
+debug_pipeline = False
 
 
 def crop_and_resize_frame(frame, boxes, uncenter=False):
@@ -25,7 +26,7 @@ def crop_and_resize_frame(frame, boxes, uncenter=False):
                 largest_area = area
                 largest_box = (x1, y1, x2, y2)
 
-        if largest_box is None:
+        if largest_box is None and debug_pipeline:
             raise ValueError("No boxes provided")
 
         # Expand the largest box into a square
@@ -49,14 +50,14 @@ def crop_and_resize_frame(frame, boxes, uncenter=False):
 
         cropped_frame = frame[y1:y2, x1:x2]
 
-        if cropped_frame.size == 0:
+        if cropped_frame.size == 0 and debug_pipeline:
             raise ValueError("Cropped frame is empty")
 
         # Resize the cropped frame to 640x640 while preserving aspect ratio
         target_size = 640
         h, w = cropped_frame.shape[:2]
 
-        if h == 0 or w == 0:
+        if h == 0 or w == 0 and debug_pipeline:
             raise ValueError("Invalid dimensions of cropped frame")
 
         if h > w:
@@ -80,8 +81,9 @@ def crop_and_resize_frame(frame, boxes, uncenter=False):
         return final_frame
 
     except Exception as e:
-        print(f"Error occurred: {e}")
-        if cached_frame is not None:
+        if debug_pipeline:
+            print(f"Error occurred: {e}")
+        if cached_frame is not None and debug_pipeline:
             print("Using cached frame")
             return cached_frame
         else:
