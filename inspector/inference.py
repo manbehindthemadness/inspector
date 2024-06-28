@@ -34,7 +34,8 @@ class Predictor:
 
         return output_image
 
-    def process_outputs(self, outputs):
+    @staticmethod
+    def process_outputs(outputs):
         boxes = []
         scores = []
         class_labels = []
@@ -61,11 +62,11 @@ class Predictor:
 
         return np.array(boxes), np.array(scores), np.array(class_labels)
 
-    def draw_boxes(self, image, boxes, scores, class_labels):
+    @staticmethod
+    def draw_boxes(image, boxes, scores, class_labels):
         for box, score, class_label in zip(boxes, scores, class_labels):
             x1, y1, x2, y2 = map(int, box)
             cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
             label = f"{class_label}: {score:.2f}"
             cv2.putText(image, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
         return image
-
