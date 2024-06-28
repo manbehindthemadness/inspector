@@ -15,51 +15,57 @@ class Predictor:
         for param in self.model.parameters():
             param.requires_grad = False
 
+        self.model.half()
+
     def predict(self, image):
         assert image.shape == (640, 640, 3), "Input image must be 640x640x3"
 
-        # Preprocess the image
-        img = image / 255.0  # Normalize to [0, 1]
-        img = img.transpose(2, 0, 1)  # Change to CxHxW
-        img = np.expand_dims(img, axis=0)  # Add batch dimension
+        img = image / 255.0
+        img = img.transpose(2, 0, 1)
+        img = np.expand_dims(img, axis=0)
         img = torch.tensor(img, dtype=torch.float16).to(self.device)
 
-        # Perform inference
         with torch.no_grad():
             outputs = self.model(img)
 
-        # Post-process the outputs to get boxes, scores, and class labels
         boxes, scores, class_labels = self.process_outputs(outputs)
 
-        # Draw boxes, scores, and class labels on the image
         output_image = self.draw_boxes(image, boxes, scores, class_labels)
 
         return output_image
 
-    @staticmethod
-    def process_outputs(outputs):
-        # Placeholder function to process the model outputs
-        # This will vary depending on your specific YOLO model implementation
-        # You will need to adapt this function to extract boxes, scores, and class labels
+    def process_outputs(self, outputs):
         boxes = []
         scores = []
         class_labels = []
-        # Example processing, adjust as necessary
-        for output in outputs:
-            for detection in output:
-                box = detection[:4].cpu().numpy()
+
+        # Assuming outputs have shape (batch_size, num_anchors, grid_height, grid_width, num_attributes)
+        # num_attributes includes (x, y, w, h, confidence, class_probs)
+        outputs = outputs[0]  # Process the first (and possibly only) batch item
+
+        # Reshape outputs if necessary, for example if they need to be flattened
+        outputs = outputs.view(-1, outputs.shape[-1])
+
+        # Apply confidence threshold
+        conf_mask = outputs[:, 4] > 0.5
+        detections = outputs[conf_mask]
+
+        if len(detections) > 0:
+            for detection in detections:
+                x1, y1, x2, y2 = detection[0:4].cpu().numpy()
                 score = detection[4].cpu().numpy()
                 class_label = detection[5].cpu().numpy()
-                boxes.append(box)
+                boxes.append([x1, y1, x2, y2])
                 scores.append(score)
                 class_labels.append(class_label)
-        return boxes, scores, class_labels
 
-    @staticmethod
-    def draw_boxes(image, boxes, scores, class_labels):
+        return np.array(boxes), np.array(scores), np.array(class_labels)
+
+    def draw_boxes(self, image, boxes, scores, class_labels):
         for box, score, class_label in zip(boxes, scores, class_labels):
             x1, y1, x2, y2 = map(int, box)
             cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
             label = f"{class_label}: {score:.2f}"
             cv2.putText(image, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
         return image
+
