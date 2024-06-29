@@ -1,7 +1,6 @@
 import cv2
 import depthai as dai
 import numpy as np
-import cupy as cup
 import blobconverter
 import time
 from inspector.utils import plot_boxes, crop_and_resize_frame
@@ -71,7 +70,7 @@ class Camera:
 
     def run(self, callback: any = None):
         """
-        This is the application loop.
+        This is the application capture loop.
         """
 
         with dai.Device(self.pipeline) as device:
@@ -85,20 +84,19 @@ class Camera:
             start_time = time.time()
             counter = 0
             fps = 0
-            layer_info_printed = False
 
             while True:
                 in_cam = q_cam.get()
                 in_nn = q_nn.get()
                 in_manip = q_manip.get()
 
-                frame = in_cam.getCvFrame()
-                frame_manip = in_manip.getCvFrame()
+                frame = in_cam.getCvFrame()  # noqa
+                frame_manip = in_manip.getCvFrame()  # noqa
                 frame_manip = cv2.cvtColor(frame_manip, cv2.COLOR_RGB2BGR)
 
                 # get outputs
-                detection_boxes = np.array(in_nn.getLayerFp16("ExpandDims")).reshape((100, 4))
-                detection_scores = np.array(in_nn.getLayerFp16("ExpandDims_2")).reshape((100,))
+                detection_boxes = np.array(in_nn.getLayerFp16("ExpandDims")).reshape((100, 4))  # noqa
+                detection_scores = np.array(in_nn.getLayerFp16("ExpandDims_2")).reshape((100,))  # noqa
 
                 # keep boxes bigger than threshold
                 mask = detection_scores >= self.threshold

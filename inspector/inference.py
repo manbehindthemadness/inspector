@@ -4,7 +4,7 @@ import numpy as np
 
 
 class Predictor:
-    def __init__(self, model_path, device='cuda'):
+    def __init__(self, model_path: str, device: str = 'cuda'):
         # Load the model
         self.device = torch.device(device if torch.cuda.is_available() else 'cpu')
         self.model_dict = torch.load(model_path, map_location=self.device)
@@ -17,7 +17,12 @@ class Predictor:
 
         self.model.half()
 
-    def predict(self, image):
+    def predict(self, image: np.ndarray) -> np.ndarray:
+        """
+        Perform inference using YOLO
+
+        NOTE: Resizing should be done on the GPU in the future.
+        """
         assert image.shape == (640, 640, 3), "Input image must be 640x640x3"
 
         img = image / 255.0
@@ -35,7 +40,10 @@ class Predictor:
         return output_image
 
     @staticmethod
-    def process_outputs(outputs):
+    def process_outputs(outputs: torch.Tensor) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Process model outputs for mark-up.
+        """
         boxes = []
         scores = []
         class_labels = []
@@ -63,7 +71,10 @@ class Predictor:
         return np.array(boxes), np.array(scores), np.array(class_labels)
 
     @staticmethod
-    def draw_boxes(image, boxes, scores, class_labels):
+    def draw_boxes(image: np.ndarray, boxes: np.ndarray, scores: np.ndarray, class_labels: np.ndarray) -> np.ndarray:
+        """
+        Draw image mark-up.
+        """
         for box, score, class_label in zip(boxes, scores, class_labels):
             x1, y1, x2, y2 = map(int, box)
             cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)

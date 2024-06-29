@@ -7,7 +7,12 @@ cached_frame = None
 debug_pipeline = False
 
 
-def crop_and_resize_frame(frame, boxes, uncenter=False):
+def crop_and_resize_frame(frame: np.ndarray, boxes: np.ndarray, uncenter: bool = False) -> np.ndarray:
+    """
+    This will take the largest ROI from the source capture and create a square mat that matches the model inputs.
+
+    NOTE: This is a good candidate for GPU acceleration.
+    """
     global cached_frame
 
     try:
@@ -90,7 +95,10 @@ def crop_and_resize_frame(frame, boxes, uncenter=False):
             raise e
 
 
-def plot_boxes(frame, boxes, colors, scores):
+def plot_boxes(frame: np.ndarray, boxes: np.ndarray, colors: np.ndarray, scores: np.ndarray):
+    """
+    This is an image mark-up used for debugging the source capture.
+    """
     color_black = (0, 0, 0)
     for i in range(boxes.shape[0]):
         box = boxes[i]
