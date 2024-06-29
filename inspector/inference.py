@@ -4,7 +4,7 @@ import numpy as np
 
 
 class Predictor:
-    def __init__(self, model_path, device='cpu'):
+    def __init__(self, model_path, device='cuda'):
         # Load the model
         self.device = torch.device(device if torch.cuda.is_available() else 'cpu')
         self.model_dict = torch.load(model_path, map_location=self.device)
