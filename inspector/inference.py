@@ -93,7 +93,7 @@ class Predictor:
             cv2.putText(image, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
             # If masks are available and valid, add them to the image
             if mask is not None:
-                mask = mask.cpu().numpy()
+                mask = mask
                 mask = cv2.resize(mask, (image.shape[1], image.shape[0]))
                 image[mask > 0.5] = [0, 255, 0]  # Example mask overlay
 
