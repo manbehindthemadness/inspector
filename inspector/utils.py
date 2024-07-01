@@ -7,7 +7,7 @@ cached_frame = None
 debug_pipeline = False
 
 
-def crop_and_resize_frame(frame: np.ndarray, boxes: np.ndarray, uncenter: bool = False) -> np.ndarray:
+def crop_and_resize_frame(frame: np.ndarray, boxes: np.ndarray, uncenter: bool = False, target_size: int = 640) -> np.ndarray:
     """
     This will take the largest ROI from the source capture and create a square mat that matches the model inputs.
 
@@ -59,7 +59,6 @@ def crop_and_resize_frame(frame: np.ndarray, boxes: np.ndarray, uncenter: bool =
             raise ValueError("Cropped frame is empty")
 
         # Resize the cropped frame to 640x640 while preserving aspect ratio
-        target_size = 640
         h, w = cropped_frame.shape[:2]
 
         if h == 0 or w == 0 and debug_pipeline:
@@ -88,11 +87,12 @@ def crop_and_resize_frame(frame: np.ndarray, boxes: np.ndarray, uncenter: bool =
     except Exception as e:
         if debug_pipeline:
             print(f"Error occurred: {e}")
-        if cached_frame is not None and debug_pipeline:
-            print("Using cached frame")
+        if cached_frame is not None:
+            if debug_pipeline:
+                print("Using cached frame")
             return cached_frame
         else:
-            raise e
+            return np.zeros((target_size, target_size, 3), dtype=np.uint8)
 
 
 def plot_boxes(frame: np.ndarray, boxes: np.ndarray, colors: np.ndarray, scores: np.ndarray):
