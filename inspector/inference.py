@@ -16,7 +16,8 @@ class Predictor:
             param.requires_grad = False
         self.model.half()
 
-    def normalize_image(self, image: np.ndarray) -> np.ndarray:
+    @staticmethod
+    def normalize_image(image: np.ndarray) -> np.ndarray:
         """
         Normalize the image using mean and std
         """
@@ -47,7 +48,8 @@ class Predictor:
 
         return output_image
 
-    def process_outputs(self, outputs: torch.Tensor) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    @staticmethod
+    def process_outputs(outputs: torch.Tensor) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
         Process model outputs for mark-up.
         """
@@ -63,7 +65,7 @@ class Predictor:
         # Assuming detections have shape [1, num_detections, 5]
         # and proto contains mask information separately
         detections = detections[0]  # Remove batch dimension
-        conf_mask = detections[:, 4] > 0.5  # Apply confidence threshold
+        conf_mask = detections[:, 4] > 0.1  # Apply confidence threshold
         filtered_detections = detections[conf_mask]
 
         for detection in filtered_detections:
@@ -75,12 +77,17 @@ class Predictor:
             scores.append(score)
             class_labels.append(class_label)
             for i, p in enumerate(proto):
-                proto[i] = p.cpu()
+                proto[i] = p.cpu()  # noqa
             masks.append(proto)  # Assuming proto contains mask data
         
         return np.array(boxes), np.array(masks, dtype=object), np.array(scores), np.array(class_labels)
 
-    def draw_boxes(self, image: np.ndarray, boxes: np.ndarray, masks: np.ndarray, scores: np.ndarray, class_labels: np.ndarray) -> np.ndarray:
+    @staticmethod
+    def draw_boxes(
+            image: np.ndarray,
+            boxes: np.ndarray, masks: np.ndarray,
+            scores: np.ndarray, class_labels: np.ndarray)\
+            -> np.ndarray:
         """
         Draw image mark-up.
         """
@@ -90,9 +97,9 @@ class Predictor:
             label = f"{class_label}: {score:.2f}"
             cv2.putText(image, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
             # If masks are available and valid, add them to the image
-            if mask is not None:
-                mask = mask[0]  # Assuming proto mask is the first in the list
-                mask = cv2.resize(mask, (image.shape[1], image.shape[0])).astype(np.uint8)
-                image[mask > 0.5] = [0, 255, 0]  # Example mask overlay
+            # if mask is not None:
+            #     mask = mask[0]  # Assuming proto mask is the first in the list
+            #     mask = cv2.resize(mask, (image.shape[1], image.shape[0])).astype(np.uint8)
+            #     image[mask > 0.5] = [0, 255, 0]  # Example mask overlay
 
         return image
