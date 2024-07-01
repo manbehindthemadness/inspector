@@ -34,6 +34,16 @@ class Predictor:
         Perform inference using YOLO
 
         NOTE: Resizing should be done on the GPU in the future.
+
+        From: https://docs.ultralytics.com/modes/predict
+
+        outputs = self.model(img)
+        for r in outputs:
+            boxes = r.boxes
+            masks = r.masks
+            keypoints = r.keypoints
+            probs = r.probs
+            obb = r.obb
         """
         assert image.shape == (640, 640, 3), "Input image must be 640x640x3"
 
