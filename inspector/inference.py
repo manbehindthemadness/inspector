@@ -59,16 +59,17 @@ class Predictor:
         detections = outputs[0]
         proto = outputs[1]
 
-        for detection in detections:
-            if detection[4] > 0.5:  # Confidence threshold
-                x1, y1, x2, y2 = detection[:4].cpu().numpy()
-                score = detection[4].cpu().numpy()
-                class_label = detection[5].cpu().numpy()
-                box = [x1, y1, x2, y2]
-                boxes.append(box)
-                scores.append(score)
-                class_labels.append(class_label)
-                masks.append(proto)  # Assuming proto contains mask data
+        conf_mask = detections[:, 4] > 0.5  # Apply confidence threshold
+        filtered_detections = detections[conf_mask]
+
+        for detection in filtered_detections:
+            x1, y1, x2, y2 = detection[:4].cpu().numpy()
+            score = detection[4].cpu().numpy()
+            class_label = detection[5].cpu().numpy()
+            boxes.append([x1, y1, x2, y2])
+            scores.append(score)
+            class_labels.append(class_label)
+            masks.append(proto)  # Assuming proto contains mask data
 
         return np.array(boxes), np.array(masks), np.array(scores), np.array(class_labels)
 
@@ -88,3 +89,4 @@ class Predictor:
                 image[mask > 0.5] = [0, 255, 0]  # Example mask overlay
 
         return image
+
