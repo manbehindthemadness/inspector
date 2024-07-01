@@ -66,8 +66,9 @@ class Predictor:
         filtered_detections = detections[conf_mask]
 
         for detection in filtered_detections:
-            x1, y1, x2, y2 = detection[:4].cpu().numpy()
-            score = detection[4].cpu().numpy()
+            detection = detection.cpu()
+            x1, y1, x2, y2 = detection[:4].numpy()
+            score = detection[4].numpy()
             # Here, we need to infer class label from another source if not provided
             class_label = 0  # Default to class 0 if not available
             boxes.append([x1, y1, x2, y2])
@@ -76,7 +77,8 @@ class Predictor:
             masks.append(proto)  # Assuming proto contains mask data
 
         # Move tensors to CPU and convert to numpy arrays
-        return np.array(boxes.cpu()), np.array(masks.cpu()), np.array(scores.cpu()), np.array(class_labels.cpu())
+        
+        return boxes, np.array(masks), np.array(scores), np.array(class_labels)
 
     def draw_boxes(self, image: np.ndarray, boxes: np.ndarray, masks: np.ndarray, scores: np.ndarray, class_labels: np.ndarray) -> np.ndarray:
         """
