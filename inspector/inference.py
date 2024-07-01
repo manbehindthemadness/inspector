@@ -14,7 +14,6 @@ class Predictor:
         # Freeze the model parameters
         for param in self.model.parameters():
             param.requires_grad = False
-
         self.model.half()
 
     def normalize_image(self, image: np.ndarray) -> np.ndarray:
