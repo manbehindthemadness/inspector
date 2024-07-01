@@ -74,6 +74,8 @@ class Predictor:
             boxes.append([x1, y1, x2, y2])
             scores.append(score)
             class_labels.append(class_label)
+            for i, p in enumerate(proto):
+                proto[i] = p.cpu()
             masks.append(proto)  # Assuming proto contains mask data
 
         # Move tensors to CPU and convert to numpy arrays
