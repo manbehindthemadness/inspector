@@ -16,6 +16,16 @@ class Predictor:
             param.requires_grad = False
         self.model.half()
 
+    def normalize_image(self, image: np.ndarray) -> np.ndarray:
+        """
+        Normalize the image using mean and std
+        """
+        mean = np.array([0.485, 0.456, 0.406])
+        std = np.array([0.229, 0.224, 0.225])
+        image = image / 255.0
+        image = (image - mean) / std
+        return image
+
     def predict(self, image: np.ndarray) -> np.ndarray:
         """
         Perform inference using YOLO
