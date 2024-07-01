@@ -75,6 +75,7 @@ class Predictor:
             class_labels.append(class_label)
             masks.append(proto)  # Assuming proto contains mask data
 
+        # Move tensors to CPU and convert to numpy arrays
         return np.array(boxes), np.array(masks), np.array(scores), np.array(class_labels)
 
     def draw_boxes(self, image: np.ndarray, boxes: np.ndarray, masks: np.ndarray, scores: np.ndarray, class_labels: np.ndarray) -> np.ndarray:
