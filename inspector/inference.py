@@ -59,7 +59,11 @@ class Predictor:
         detections = outputs[0]
         proto = outputs[1]
 
-        conf_mask = detections[:, 4] > 0.5  # Apply confidence threshold
+        # Reshape detections tensor
+        detections = detections.view(detections.shape[1], -1).T  # Convert to shape [8400, 6]
+
+        # Apply confidence threshold
+        conf_mask = detections[:, 4] > 0.5
         filtered_detections = detections[conf_mask]
 
         for detection in filtered_detections:
@@ -89,4 +93,5 @@ class Predictor:
                 image[mask > 0.5] = [0, 255, 0]  # Example mask overlay
 
         return image
+
 
