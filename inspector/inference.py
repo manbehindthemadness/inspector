@@ -51,15 +51,14 @@ class Predictor:
         """
         Process model outputs for mark-up.
         """
-        outputs = outputs.cpu()
         
         boxes = []
         masks = []
         scores = []
         class_labels = []
 
-        detections = outputs[0]
-        proto = outputs[1]
+        detections = outputs[0].cpu()
+        proto = outputs[1].cpu()
 
         # Assuming detections have shape [1, num_detections, 5]
         # and proto contains mask information separately
