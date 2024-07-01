@@ -51,6 +51,8 @@ class Predictor:
         """
         Process model outputs for mark-up.
         """
+        outputs = outputs.cpu()
+        
         boxes = []
         masks = []
         scores = []
@@ -66,7 +68,6 @@ class Predictor:
         filtered_detections = detections[conf_mask]
 
         for detection in filtered_detections:
-            detection = detection.cpu()
             x1, y1, x2, y2 = detection[:4].numpy()
             score = detection[4].numpy()
             # Here, we need to infer class label from another source if not provided
@@ -78,7 +79,7 @@ class Predictor:
 
         # Move tensors to CPU and convert to numpy arrays
         
-        return boxes, np.array(masks), np.array(scores), np.array(class_labels)
+        return np.array(boxes), np.array(masks), np.array(scores), np.array(class_labels)
 
     def draw_boxes(self, image: np.ndarray, boxes: np.ndarray, masks: np.ndarray, scores: np.ndarray, class_labels: np.ndarray) -> np.ndarray:
         """
