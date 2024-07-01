@@ -63,7 +63,7 @@ class Predictor:
         detections = detections.view(detections.shape[1], -1).T  # Convert to shape [8400, 6]
 
         # Apply confidence threshold
-        conf_mask = detections[:, 4] > 0.5
+        conf_mask = detections[:, 4] > 0.1
         filtered_detections = detections[conf_mask]
 
         for detection in filtered_detections:
