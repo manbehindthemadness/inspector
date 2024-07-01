@@ -58,7 +58,7 @@ class Predictor:
         class_labels = []
 
         detections = outputs[0].cpu()
-        proto = outputs[1].cpu()
+        proto = outputs[1]
 
         # Assuming detections have shape [1, num_detections, 5]
         # and proto contains mask information separately
@@ -74,7 +74,7 @@ class Predictor:
             boxes.append([x1, y1, x2, y2])
             scores.append(score)
             class_labels.append(class_label)
-            masks.append(proto)  # Assuming proto contains mask data
+            masks.append(proto.cpu())  # Assuming proto contains mask data
 
         # Move tensors to CPU and convert to numpy arrays
         
