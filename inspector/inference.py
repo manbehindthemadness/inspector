@@ -57,8 +57,8 @@ class Predictor:
         scores = []
         class_labels = []
 
-        detections = outputs[0].cpu()
-        proto = outputs[1]
+        detections = outputs[0].cpu().numpy()
+        proto = outputs[1].cpu().numpy()
 
         # Assuming detections have shape [1, num_detections, 5]
         # and proto contains mask information separately
@@ -67,20 +67,19 @@ class Predictor:
         filtered_detections = detections[conf_mask]
 
         for detection in filtered_detections:
-            x1, y1, x2, y2 = detection[:4].numpy()
-            score = detection[4].numpy()
+            x1, y1, x2, y2 = detection[:4]
+            score = detection[4]
             # Here, we need to infer class label from another source if not provided
             class_label = 0  # Default to class 0 if not available
             boxes.append([x1, y1, x2, y2])
             scores.append(score)
             class_labels.append(class_label)
-            for i, p in enumerate(proto):
-                proto[i] = p.cpu()
             masks.append(proto)  # Assuming proto contains mask data
 
-        # Move tensors to CPU and convert to numpy arrays
+        # Ensure masks are numpy arrays
+        masks = [m for m in masks]
         
-        return np.array(boxes), np.array(masks), np.array(scores), np.array(class_labels)
+        return np.array(boxes), np.array(masks, dtype=object), np.array(scores), np.array(class_labels)
 
     def draw_boxes(self, image: np.ndarray, boxes: np.ndarray, masks: np.ndarray, scores: np.ndarray, class_labels: np.ndarray) -> np.ndarray:
         """
@@ -93,8 +92,8 @@ class Predictor:
             cv2.putText(image, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
             # If masks are available and valid, add them to the image
             if mask is not None:
-                mask = mask
-                mask = cv2.resize(mask, (image.shape[1], image.shape[0]))
+                mask = mask[0]  # Assuming proto mask is the first in the list
+                mask = cv2.resize(mask, (image.shape[1], image.shape[0])).astype(np.uint8)
                 image[mask > 0.5] = [0, 255, 0]  # Example mask overlay
 
         return image
