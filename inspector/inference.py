@@ -58,7 +58,7 @@ class Predictor:
         class_labels = []
 
         detections = outputs[0].cpu().numpy()
-        proto = outputs[1].cpu().numpy()
+        proto = outputs[1]
 
         # Assuming detections have shape [1, num_detections, 5]
         # and proto contains mask information separately
@@ -74,10 +74,9 @@ class Predictor:
             boxes.append([x1, y1, x2, y2])
             scores.append(score)
             class_labels.append(class_label)
+            for i, p in enumerate(proto):
+                proto[i] = p.cpu()
             masks.append(proto)  # Assuming proto contains mask data
-
-        # Ensure masks are numpy arrays
-        masks = [m for m in masks]
         
         return np.array(boxes), np.array(masks, dtype=object), np.array(scores), np.array(class_labels)
 
