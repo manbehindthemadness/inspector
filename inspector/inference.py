@@ -16,16 +16,6 @@ class Predictor:
             param.requires_grad = False
         self.model.half()
 
-    def normalize_image(self, image: np.ndarray) -> np.ndarray:
-        """
-        Normalize the image using mean and std
-        """
-        mean = np.array([0.485, 0.456, 0.406])
-        std = np.array([0.229, 0.224, 0.225])
-        image = image / 255.0
-        image = (image - mean) / std
-        return image
-
     def predict(self, image: np.ndarray) -> np.ndarray:
         """
         Perform inference using YOLO
@@ -43,12 +33,11 @@ class Predictor:
 
         boxes, masks, scores, class_labels = self.process_outputs(outputs)
 
-        output_image = self.draw_boxes_and_masks(image, boxes, masks, scores, class_labels)
+        output_image = self.draw_boxes(image, boxes, masks, scores, class_labels)
 
         return output_image
 
-    @staticmethod
-    def process_outputs(outputs: torch.Tensor) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def process_outputs(self, outputs: torch.Tensor) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
         Process model outputs for mark-up.
         """
@@ -57,37 +46,35 @@ class Predictor:
         scores = []
         class_labels = []
 
-        # Assuming outputs have shape (batch_size, num_anchors, grid_height, grid_width, num_attributes)
-        # num_attributes includes (x, y, w, h, confidence, class_probs)
-        for r in outputs:
-            for box in r.boxes:
-                x1, y1, x2, y2 = box[:4].cpu().numpy()
-                score = box[4].cpu().numpy()
-                class_label = box[5].cpu().numpy()
-                mask = r.masks  # Assuming r.masks contains the mask information
-                boxes.append([x1, y1, x2, y2])
+        detections = outputs[0]
+        proto = outputs[1]
+
+        for detection in detections:
+            if detection[4] > 0.5:  # Confidence threshold
+                x1, y1, x2, y2 = detection[:4].cpu().numpy()
+                score = detection[4].cpu().numpy()
+                class_label = detection[5].cpu().numpy()
+                box = [x1, y1, x2, y2]
+                boxes.append(box)
                 scores.append(score)
                 class_labels.append(class_label)
-                masks.append(mask)
+                masks.append(proto)  # Assuming proto contains mask data
 
         return np.array(boxes), np.array(masks), np.array(scores), np.array(class_labels)
 
-    @staticmethod
-    def draw_boxes_and_masks(image: np.ndarray, boxes: np.ndarray, masks: np.ndarray, scores: np.ndarray, class_labels: np.ndarray) -> np.ndarray:
+    def draw_boxes(self, image: np.ndarray, boxes: np.ndarray, masks: np.ndarray, scores: np.ndarray, class_labels: np.ndarray) -> np.ndarray:
         """
-        Draw image mark-up with boxes and masks.
+        Draw image mark-up.
         """
         for box, mask, score, class_label in zip(boxes, masks, scores, class_labels):
             x1, y1, x2, y2 = map(int, box)
             cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
             label = f"{class_label}: {score:.2f}"
             cv2.putText(image, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-
-            # Draw mask
-            mask_resized = cv2.resize(mask, (x2 - x1, y2 - y1))
-            mask_binary = mask_resized > 0.5
-            colored_mask = np.zeros_like(image)
-            colored_mask[y1:y2, x1:x2][mask_binary] = [0, 255, 0]  # Green mask
-            image = cv2.addWeighted(image, 1, colored_mask, 0.5, 0)
+            # If masks are available and valid, add them to the image
+            if mask is not None:
+                mask = mask.cpu().numpy()
+                mask = cv2.resize(mask, (image.shape[1], image.shape[0]))
+                image[mask > 0.5] = [0, 255, 0]  # Example mask overlay
 
         return image
