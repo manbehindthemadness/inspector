@@ -3,7 +3,6 @@ import cv2
 import numpy as np
 
 
-cached_frame = None
 debug_pipeline = False
 
 
@@ -13,7 +12,6 @@ def crop_and_resize_frame(frame: np.ndarray, boxes: np.ndarray, uncenter: bool =
 
     NOTE: This is a good candidate for GPU acceleration.
     """
-    global cached_frame
 
     try:
         # Find the largest box
@@ -78,21 +76,13 @@ def crop_and_resize_frame(frame: np.ndarray, boxes: np.ndarray, uncenter: bool =
         start_x = (target_size - new_w) // 2
         start_y = (target_size - new_h) // 2
         final_frame[start_y:start_y + new_h, start_x:start_x + new_w] = resized_cropped_frame
-
-        # Update the cached frame
-        cached_frame = final_frame  # TODO: What we should do is just pass the original image.
-
-        return final_frame
+        result = final_frame
 
     except Exception as e:
         if debug_pipeline:
             print(f"Error occurred: {e}")
-        if cached_frame is not None:
-            if debug_pipeline:
-                print("Using cached frame")
-            return cached_frame
-        else:
-            return np.zeros((target_size, target_size, 3), dtype=np.uint8)
+        result = cv2.resize(frame, (target_size, target_size), interpolation=cv2.INTER_LINEAR)
+    return result
 
 
 def plot_boxes(frame: np.ndarray, boxes: np.ndarray, colors: np.ndarray, scores: np.ndarray):
