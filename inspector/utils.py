@@ -80,7 +80,7 @@ def crop_and_resize_frame(frame: np.ndarray, boxes: np.ndarray, uncenter: bool =
         final_frame[start_y:start_y + new_h, start_x:start_x + new_w] = resized_cropped_frame
 
         # Update the cached frame
-        cached_frame = final_frame
+        cached_frame = final_frame  # TODO: What we should do is just pass the original image.
 
         return final_frame
 

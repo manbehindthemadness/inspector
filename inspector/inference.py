@@ -10,16 +10,6 @@ class Predictor:
         # Load the model
         self.device = torch.device(device if torch.cuda.is_available() else 'cpu')
         self.model = YOLO(model_path, task='detect').to(self.device)
-
-        # Don't use this:
-
-        # self.model_dict = torch.load(model_path, map_location=self.device)
-        # self.model = self.model_dict['model']
-        # self.model.eval()  # Set the model to evaluation mode
-        #
-        # # Freeze the model parameters
-        # for param in self.model.parameters():
-        #     param.requires_grad = False
         # self.model.half()
 
     def predict(self, image: np.ndarray) -> np.array:
@@ -33,7 +23,8 @@ class Predictor:
         # Perform inference.
         outputs = self.model(img)
         output = outputs[0].cpu()
-
+        # Run markup
+        # TODO: We need to transform the markup and place it on the original image from before the ROI zoom.
         output_image = self.process_outputs(output, image)
 
         return output_image
