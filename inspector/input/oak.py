@@ -39,7 +39,7 @@ class Camera:
         cam = pipeline.create(dai.node.ColorCamera)
         cam.setPreviewSize(self.preview_width, self.preview_height)
         cam.setInterleaved(False)
-        cam.setFps(40)
+        cam.setFps(25)
 
         # Create manip
         manip = pipeline.create(dai.node.ImageManip)
@@ -105,7 +105,7 @@ class Camera:
                 colors = colors_full[mask]
                 scores = detection_scores[mask]
 
-                focus_frame, origins, target_size = crop_and_resize_frame(frame, boxes)
+                focus_frame, origins, target_size, boxes = crop_and_resize_frame(frame, boxes)
                 data = None
                 if callback:
                     focus_frame, data = callback(focus_frame)
@@ -115,9 +115,8 @@ class Camera:
                 plot_boxes(frame_manip, boxes, colors, scores)
 
                 if data is not None:  # Draw the boxes from the YOLO model.
-                    original_size = frame.shape[:2]
                     cropped_size = target_size, target_size
-                    yolo_boxes = transform_boxes(data, origins, original_size, cropped_size)
+                    yolo_boxes = transform_boxes(data, origins, cropped_size)
                     plot_boxes(frame, yolo_boxes, None, None, color=(0, 255, 0))
 
                 # show fps and predicted count
@@ -130,8 +129,9 @@ class Camera:
 
                 # show frame
                 cv2.imshow("Localizer", frame)
-                # cv2.imshow("Manip + NN", frame_manip)
-                cv2.imshow("Focused", focus_frame)
+                if self.debug:
+                    cv2.imshow("Manip + NN", frame_manip)
+                    cv2.imshow("Focused", focus_frame)
 
                 counter += 1
                 if (time.time() - start_time) > 1:

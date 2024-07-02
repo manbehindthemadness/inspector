@@ -1,4 +1,3 @@
-import cupy as cup
 import cv2
 import numpy as np
 
@@ -9,7 +8,7 @@ debug_pipeline = False
 def crop_and_resize_frame(
         frame: np.ndarray, boxes: np.ndarray,
         uncenter: bool = False, target_size: int = 640,
-) -> tuple[np.ndarray, tuple[int, int, int, int], int]:
+) -> tuple[np.ndarray, tuple[int, int, int, int], int, list[tuple[int, int, int, int]]]:
     """
     This will take the largest ROI from the source capture and create a square mat that matches the model inputs.
 
@@ -31,9 +30,12 @@ def crop_and_resize_frame(
             if area > largest_area:
                 largest_area = area
                 largest_box = (x1, y1, x2, y2)
+                pass_box = box
 
         if largest_box is None:
             raise ValueError("No boxes provided")
+        else:
+            boxes = [pass_box]  # noqa
 
         # Expand the largest box into a square
         x1, y1, x2, y2 = largest_box
@@ -87,7 +89,7 @@ def crop_and_resize_frame(
         result = cv2.resize(frame, (target_size, target_size), interpolation=cv2.INTER_LINEAR)
         x1, y1, x2, y2 = 0, 0, 0, 0  # If there's an error, the coordinates will be (0, 0)
 
-    return result, (x1, y1, x2, y2), target_size
+    return result, (x1, y1, x2, y2), target_size, boxes
 
 
 def plot_boxes(
@@ -128,7 +130,6 @@ def plot_boxes(
 def transform_boxes(
         boxes: list[tuple[int, int, int, int, str]],  # List of boxes as [(x1, y1, x2, y2, label)]
         origin_box: tuple[int, int, int, int],  # The bounding box extracted from the original image (x1, y1, x2, y2).
-        original_size: tuple[int, int] = (800, 800),  # The size of the original unmodified image (x, y).
         resized_size: tuple[int, int] = (640, 640)  # The resized value of the origin_box (x, y).
 ):
     """
@@ -138,7 +139,6 @@ def transform_boxes(
     - boxes: List of bounding boxes detected in the cropped and resized region.
              Each box is represented as a tuple (x1, y1, x2, y2, label).
     - origin_box: Tuple of (x1, y1, x2, y2) representing the bounding box of the cropped area in the original image.
-    - original_size: Tuple of (original_width, original_height) representing the size of the original image.
     - resized_size: Tuple of (resized_width, resized_height) representing the size of the cropped region after resizing.
 
     Returns:
@@ -173,12 +173,3 @@ def transform_boxes(
         )
 
     return transformed_boxes
-
-
-def init_cupy() -> cup.ndarray:
-    """
-    This just forces cupy to load its resources.
-    """
-    a = cup.array([1, 1])
-    a + 1
-    return a
