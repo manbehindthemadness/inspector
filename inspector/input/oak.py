@@ -104,7 +104,7 @@ class Camera:
                 colors = colors_full[mask]
                 scores = detection_scores[mask]
 
-                focus_frame = crop_and_resize_frame(frame, boxes)
+                focus_frame, _, _ = crop_and_resize_frame(frame, boxes)
                 if callback:  # TODO: We need to return the focus_frame and then the mark up for the original.
                     focus_frame = callback(focus_frame)  # TODO: We will need to pass the dims of the original as well.
 

@@ -6,7 +6,10 @@ import numpy as np
 debug_pipeline = False
 
 
-def crop_and_resize_frame(frame: np.ndarray, boxes: np.ndarray, uncenter: bool = False, target_size: int = 640) -> np.ndarray:
+def crop_and_resize_frame(
+        frame: np.ndarray, boxes: np.ndarray,
+        uncenter: bool = False, target_size: int = 640,
+) -> tuple[np.ndarray, tuple[int, int], int]:
     """
     This will take the largest ROI from the source capture and create a square mat that matches the model inputs.
 
@@ -29,7 +32,7 @@ def crop_and_resize_frame(frame: np.ndarray, boxes: np.ndarray, uncenter: bool =
                 largest_area = area
                 largest_box = (x1, y1, x2, y2)
 
-        if largest_box is None and debug_pipeline:
+        if largest_box is None:
             raise ValueError("No boxes provided")
 
         # Expand the largest box into a square
@@ -53,13 +56,13 @@ def crop_and_resize_frame(frame: np.ndarray, boxes: np.ndarray, uncenter: bool =
 
         cropped_frame = frame[y1:y2, x1:x2]
 
-        if cropped_frame.size == 0 and debug_pipeline:
+        if cropped_frame.size == 0:
             raise ValueError("Cropped frame is empty")
 
         # Resize the cropped frame to 640x640 while preserving aspect ratio
         h, w = cropped_frame.shape[:2]
 
-        if h == 0 or w == 0 and debug_pipeline:
+        if h == 0 or w == 0:
             raise ValueError("Invalid dimensions of cropped frame")
 
         if h > w:
@@ -82,7 +85,9 @@ def crop_and_resize_frame(frame: np.ndarray, boxes: np.ndarray, uncenter: bool =
         if debug_pipeline:
             print(f"Error occurred: {e}")
         result = cv2.resize(frame, (target_size, target_size), interpolation=cv2.INTER_LINEAR)
-    return result
+        x1, y1 = 0, 0  # If there's an error, the coordinates will be (0, 0)
+
+    return result, (x1, y1), target_size
 
 
 def plot_boxes(frame: np.ndarray, boxes: np.ndarray, colors: np.ndarray, scores: np.ndarray):
