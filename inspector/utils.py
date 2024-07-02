@@ -90,22 +90,81 @@ def crop_and_resize_frame(
     return result, (x1, y1), target_size
 
 
-def plot_boxes(frame: np.ndarray, boxes: np.ndarray, colors: np.ndarray, scores: np.ndarray):
+def plot_boxes(
+        frame: np.ndarray, boxes: np.ndarray, colors: [np.ndarray, None],
+        scores: [np.ndarray, None], color: [tuple, None] = None):
     """
     This is an image mark-up used for debugging the source capture.
     """
     color_black = (0, 0, 0)
-    for i in range(boxes.shape[0]):
+    for i in range(len(boxes)):
         box = boxes[i]
-        y1 = (frame.shape[0] * box[0]).astype(int)
-        y2 = (frame.shape[0] * box[2]).astype(int)
-        x1 = (frame.shape[1] * box[1]).astype(int)
-        x2 = (frame.shape[1] * box[3]).astype(int)
-        color = (int(colors[i, 0]), int(colors[i, 1]), int(colors[i, 2]))
+        if isinstance(box, np.ndarray):
+            y1 = (frame.shape[0] * box[0]).astype(int)
+            y2 = (frame.shape[0] * box[2]).astype(int)
+            x1 = (frame.shape[1] * box[1]).astype(int)
+            x2 = (frame.shape[1] * box[3]).astype(int)
+        elif isinstance(box, list) or isinstance(box, tuple):
+            y1, y2, x1, x2, _ = box
+        else:
+            raise TypeError(f"expected list, tuple or np.ndarray, not {type(box)}")
+        if colors is not None:
+            color = (int(colors[i, 0]), int(colors[i, 1]), int(colors[i, 2]))
+        if color is None:
+            color = (0, 0, 0)
+
+        score = str()
+        if scores is not None:
+            score = f"{scores[i]:.2f}"
+        elif len(box) == 5:
+            score = box[-1]
 
         cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
         cv2.rectangle(frame, (x1, y1), (x1 + 50, y1 + 15), color, -1)
-        cv2.putText(frame, f"{scores[i]:.2f}", (x1 + 10, y1 + 10), cv2.FONT_HERSHEY_TRIPLEX, 0.4, color_black)
+        cv2.putText(frame, score, (x1 + 10, y1 + 10), cv2.FONT_HERSHEY_TRIPLEX, 0.4, color_black)
+
+
+def transform_boxes(
+        boxes: list[tuple[int, int, int, int, str]],
+        top_left_corner: tuple[int, int],
+        original_size: tuple[int, int],
+        cropped_size: tuple[int, int],
+):
+    """
+    Transforms detection boxes from the cropped and resized region back to the coordinates of the original image.
+
+    Args:
+    - boxes: List of bounding boxes detected in the cropped and resized region.
+             Each box is represented as a tuple (x, y, w, h).
+    - top_left_corner: Tuple of (x, y) representing the top-left corner of the cropped area in the original image.
+    - original_size: Tuple of (original_width, original_height) representing the size of the original image.
+    - cropped_size: Tuple of (cropped_width,cropped_height) representing the size of the cropped region before resizing.
+    - target_size: The size to which the cropped region was resized (default is 640).
+
+    Returns:
+    - transformed_boxes: List of bounding boxes transformed to the original image coordinates.
+    """
+    transformed_boxes = []
+    top_left_x, top_left_y = top_left_corner
+    original_width, original_height = original_size
+    cropped_width, cropped_height = cropped_size
+
+    # Calculate the scaling factors
+    scale_x = cropped_width / original_width
+    scale_y = cropped_height / original_height
+
+    for box in boxes:
+        x, y, w, h, label = box
+
+        # Transform the coordinates to the original image
+        orig_x = int(x * scale_x) + top_left_x
+        orig_y = int(y * scale_y) + top_left_y
+        orig_w = int(w * scale_x)
+        orig_h = int(h * scale_y)
+
+        transformed_boxes.append((orig_x, orig_y, orig_w, orig_h, label))
+
+    return transformed_boxes
 
 
 def init_cupy() -> cup.ndarray:

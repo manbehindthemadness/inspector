@@ -3,7 +3,7 @@ import depthai as dai
 import numpy as np
 import blobconverter
 import time
-from inspector.utils import plot_boxes, crop_and_resize_frame
+from inspector.utils import plot_boxes, crop_and_resize_frame, transform_boxes
 
 
 class Camera:
@@ -104,13 +104,21 @@ class Camera:
                 colors = colors_full[mask]
                 scores = detection_scores[mask]
 
-                focus_frame, _, _ = crop_and_resize_frame(frame, boxes)
-                if callback:  # TODO: We need to return the focus_frame and then the mark up for the original.
-                    focus_frame = callback(focus_frame)  # TODO: We will need to pass the dims of the original as well.
+                focus_frame, origin, target_size = crop_and_resize_frame(frame, boxes)
+                data = None
+                if callback:
+                    focus_frame, data = callback(focus_frame)
 
                 # draw boxes
                 plot_boxes(frame, boxes, colors, scores)
                 plot_boxes(frame_manip, boxes, colors, scores)
+
+                if data is not None:  # Draw the boxes from the YOLO model.
+                    original_size = frame.shape[:2]
+                    cropped_size = target_size, target_size
+                    yolo_boxes = transform_boxes(data, origin, original_size, cropped_size)
+                    plot_boxes(frame, yolo_boxes, None, None, color=(0, 255, 0))
+                    pass
 
                 # show fps and predicted count
                 color_black, color_white = (0, 0, 0), (255, 255, 255)
