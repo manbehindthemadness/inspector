@@ -93,11 +93,16 @@ def crop_and_resize_frame(
 
 
 def plot_boxes(
-        frame: np.ndarray, boxes: np.ndarray, colors: [np.ndarray, None],
+        frame: np.ndarray, boxes: [np.ndarray, list[tuple[int, int, int, int]]], colors: [np.ndarray, None],
         scores: [np.ndarray, None], color: [tuple, None] = None):
     """
     This is an image mark-up used for debugging the source capture.
     """
+
+    def overlap(b1, b2):
+        return not (b1[2] < b2[0] or b1[0] > b2[2] or b1[3] < b2[1] or b1[1] > b2[3])
+
+    label_coords = list()
     color_black = (0, 0, 0)
     for i in range(len(boxes)):
         box = boxes[i]
@@ -121,10 +126,21 @@ def plot_boxes(
         elif len(box) == 5:
             score = box[-1]
 
-        cv2.rectangle(frame, (x1, y1), (x2, y2), color, 1)
         (w1, h1), _ = cv2.getTextSize(score, cv2.FONT_HERSHEY_TRIPLEX, 0.4, 1)
-        cv2.rectangle(frame, (x1, y1), (x1 + 50 + h1, y1 - 15), color, -1)
-        cv2.putText(frame, score, (x1 + 10, y1 - 3), cv2.FONT_HERSHEY_SIMPLEX, 0.4, color_black)
+        lc_x1, lc_y1, lc_x2, lc_y2 = x1, y1, x1 + 50 + h1, y1 - 15
+        lc_coord = (lc_x1, lc_y1, lc_x2, lc_y2)
+
+        discard = False
+        for j in range(len(label_coords)):
+            discard = False
+            if overlap(label_coords[j], lc_coord):
+                print('discarding')
+                discard = True
+        if not discard:
+            label_coords.append(lc_coord)
+            cv2.rectangle(frame, (x1, y1), (x2, y2), color, 1)
+            cv2.rectangle(frame, (lc_x1, lc_y1), (lc_x2, lc_y2), color, -1)
+            cv2.putText(frame, score, (x1 + 10, y1 - 3), cv2.FONT_HERSHEY_SIMPLEX, 0.4, color_black)
 
 
 def transform_boxes(
@@ -142,7 +158,7 @@ def transform_boxes(
     - resized_size: Tuple of (resized_width, resized_height) representing the size of the cropped region after resizing.
 
     Returns:
-    - transformed_boxes: List of bounding boxes transformed to the original image coordinates in (y1, y2, x1, x2, label) format.
+    - transformed_boxes: List of bounding boxes transformed to the original image coordinates in (y1, y2, x1, x2, label)
     """
     transformed_boxes = []
     orig_x1, orig_y1, orig_x2, orig_y2 = origin_box
