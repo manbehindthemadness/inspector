@@ -9,7 +9,7 @@ debug_pipeline = False
 def crop_and_resize_frame(
         frame: np.ndarray, boxes: np.ndarray,
         uncenter: bool = False, target_size: int = 640,
-) -> tuple[np.ndarray, tuple[int, int], int]:
+) -> tuple[np.ndarray, tuple[int, int, int, int], int]:
     """
     This will take the largest ROI from the source capture and create a square mat that matches the model inputs.
 
@@ -85,9 +85,9 @@ def crop_and_resize_frame(
         if debug_pipeline:
             print(f"Error occurred: {e}")
         result = cv2.resize(frame, (target_size, target_size), interpolation=cv2.INTER_LINEAR)
-        x1, y1 = 0, 0  # If there's an error, the coordinates will be (0, 0)
+        x1, y1, x2, y2 = 0, 0, 0, 0  # If there's an error, the coordinates will be (0, 0)
 
-    return result, (x1, y1), target_size
+    return result, (x1, y1, x2, y2), target_size
 
 
 def plot_boxes(
@@ -119,50 +119,58 @@ def plot_boxes(
         elif len(box) == 5:
             score = box[-1]
 
-        cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-        cv2.rectangle(frame, (x1, y1), (x1 + 50, y1 + 15), color, -1)
-        cv2.putText(frame, score, (x1 + 10, y1 + 10), cv2.FONT_HERSHEY_TRIPLEX, 0.4, color_black)
+        cv2.rectangle(frame, (x1, y1), (x2, y2), color, 1)
+        (w1, h1), _ = cv2.getTextSize(score, cv2.FONT_HERSHEY_TRIPLEX, 0.4, 1)
+        cv2.rectangle(frame, (x1, y1), (x1 + 50 + h1, y1 - 15), color, -1)
+        cv2.putText(frame, score, (x1 + 10, y1 - 3), cv2.FONT_HERSHEY_SIMPLEX, 0.4, color_black)
 
 
 def transform_boxes(
-        boxes: list[tuple[int, int, int, int, str]],
-        top_left_corner: tuple[int, int],
-        original_size: tuple[int, int],
-        cropped_size: tuple[int, int],
+        boxes: list[tuple[int, int, int, int, str]],  # List of boxes as [(x1, y1, x2, y2, label)]
+        origin_box: tuple[int, int, int, int],  # The bounding box extracted from the original image (x1, y1, x2, y2).
+        original_size: tuple[int, int] = (800, 800),  # The size of the original unmodified image (x, y).
+        resized_size: tuple[int, int] = (640, 640)  # The resized value of the origin_box (x, y).
 ):
     """
     Transforms detection boxes from the cropped and resized region back to the coordinates of the original image.
 
     Args:
     - boxes: List of bounding boxes detected in the cropped and resized region.
-             Each box is represented as a tuple (x, y, w, h).
-    - top_left_corner: Tuple of (x, y) representing the top-left corner of the cropped area in the original image.
+             Each box is represented as a tuple (x1, y1, x2, y2, label).
+    - origin_box: Tuple of (x1, y1, x2, y2) representing the bounding box of the cropped area in the original image.
     - original_size: Tuple of (original_width, original_height) representing the size of the original image.
-    - cropped_size: Tuple of (cropped_width,cropped_height) representing the size of the cropped region before resizing.
-    - target_size: The size to which the cropped region was resized (default is 640).
+    - resized_size: Tuple of (resized_width, resized_height) representing the size of the cropped region after resizing.
 
     Returns:
-    - transformed_boxes: List of bounding boxes transformed to the original image coordinates.
+    - transformed_boxes: List of bounding boxes transformed to the original image coordinates in (y1, y2, x1, x2, label) format.
     """
     transformed_boxes = []
-    top_left_x, top_left_y = top_left_corner
-    original_width, original_height = original_size
-    cropped_width, cropped_height = cropped_size
+    orig_x1, orig_y1, orig_x2, orig_y2 = origin_box
 
-    # Calculate the scaling factors
-    scale_x = cropped_width / original_width
-    scale_y = cropped_height / original_height
+    # Add origin dummy box for troubleshooting
+    transformed_boxes.append((orig_y1, orig_y1 + 1, orig_x1, orig_x1 + 1, 'target'))
+
+    # Calculate the width and height of the original and resized bounding box
+    original_box_width = orig_x2 - orig_x1
+    original_box_height = orig_y2 - orig_y1
+    resized_width, resized_height = resized_size
+
+    # Calculate the scaling factors from resized to original box size
+    scale_x = original_box_width / resized_width
+    scale_y = original_box_height / resized_height
 
     for box in boxes:
-        x, y, w, h, label = box
+        x1, y1, x2, y2, label = box
 
         # Transform the coordinates to the original image
-        orig_x = int(x * scale_x) + top_left_x
-        orig_y = int(y * scale_y) + top_left_y
-        orig_w = int(w * scale_x)
-        orig_h = int(h * scale_y)
+        orig_x1_transformed = int(x1 * scale_x) + orig_x1
+        orig_y1_transformed = int(y1 * scale_y) + orig_y1
+        orig_x2_transformed = int(x2 * scale_x) + orig_x1
+        orig_y2_transformed = int(y2 * scale_y) + orig_y1
 
-        transformed_boxes.append((orig_x, orig_y, orig_w, orig_h, label))
+        transformed_boxes.append(
+            (orig_y1_transformed, orig_y2_transformed, orig_x1_transformed, orig_x2_transformed, label)
+        )
 
     return transformed_boxes
 

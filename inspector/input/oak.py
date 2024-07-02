@@ -10,7 +10,8 @@ class Camera:
     """
     Load up the camera pipeline and resources.`
     """
-    def __init__(self):
+    def __init__(self, debug: bool = False):
+        self.debug = debug
         self.nn_path = blobconverter.from_zoo(
             name="mobile_object_localizer_192x192",
             zoo_type="depthai",
@@ -104,7 +105,7 @@ class Camera:
                 colors = colors_full[mask]
                 scores = detection_scores[mask]
 
-                focus_frame, origin, target_size = crop_and_resize_frame(frame, boxes)
+                focus_frame, origins, target_size = crop_and_resize_frame(frame, boxes)
                 data = None
                 if callback:
                     focus_frame, data = callback(focus_frame)
@@ -116,9 +117,8 @@ class Camera:
                 if data is not None:  # Draw the boxes from the YOLO model.
                     original_size = frame.shape[:2]
                     cropped_size = target_size, target_size
-                    yolo_boxes = transform_boxes(data, origin, original_size, cropped_size)
+                    yolo_boxes = transform_boxes(data, origins, original_size, cropped_size)
                     plot_boxes(frame, yolo_boxes, None, None, color=(0, 255, 0))
-                    pass
 
                 # show fps and predicted count
                 color_black, color_white = (0, 0, 0), (255, 255, 255)

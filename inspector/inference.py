@@ -54,7 +54,7 @@ class Predictor:
 
             if self.draw:
                 # Draw the bounding box
-                cv2.rectangle(image, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
+                cv2.rectangle(image, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 1)
 
                 # Put the label and confidence score
                 cv2.putText(image, label_with_confidence, (int(x1), int(y1) - 10),
