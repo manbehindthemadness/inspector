@@ -103,6 +103,8 @@ def plot_boxes(
     def overlap(b1, b2):
         """
         Yeah, this doesn't seem to work...
+
+        (x1, y1, x2, y2), (x1, y1, x2, y2)
         """
         return not (b1[2] < b2[0] or b1[0] > b2[2] or b1[3] < b2[1] or b1[1] > b2[3])
 
@@ -137,7 +139,6 @@ def plot_boxes(
         for j in range(len(label_coords)):
             relocate = False
             if overlap(label_coords[j], (lc_x1, lc_y1, lc_x2, lc_y2)):
-                print('discarding')
                 relocate = True
         in_view = True
         if relocate:

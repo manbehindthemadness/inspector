@@ -117,7 +117,7 @@ class Camera:
 
                 if data is not None:  # Draw the boxes from the YOLO model.
                     cropped_size = target_size, target_size
-                    yolo_boxes = transform_boxes(data, origins, cropped_size)  # TODO: Prolly need threshold...
+                    yolo_boxes = transform_boxes(data, origins, cropped_size)
                     plot_boxes(frame, yolo_boxes, None, None, color=(0, 255, 0))
 
                 # show fps and predicted count
