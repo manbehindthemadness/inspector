@@ -24,7 +24,9 @@ class Predictor:
         output_image, data = self.process_outputs(output, image, thresh)
         return output_image, data
 
-    def process_outputs(self, outputs: Results, image: np.ndarray, thresh: tuple[float, int]) -> tuple[np.ndarray, list]:
+    def process_outputs(
+            self, outputs: Results, image: np.ndarray, thresh: tuple[float, int]
+    ) -> tuple[np.ndarray, list]:
         boxes = outputs.boxes
         detections = []
         data = []
