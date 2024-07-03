@@ -3,6 +3,7 @@ import numpy as np
 
 
 debug_pipeline = False
+show_target = True
 
 
 def crop_and_resize_frame(
@@ -100,6 +101,9 @@ def plot_boxes(
     """
 
     def overlap(b1, b2):
+        """
+        Yeah, this doesn't seem to work...
+        """
         return not (b1[2] < b2[0] or b1[0] > b2[2] or b1[3] < b2[1] or b1[1] > b2[3])
 
     label_coords = list()
@@ -128,17 +132,31 @@ def plot_boxes(
 
         (w1, h1), _ = cv2.getTextSize(score, cv2.FONT_HERSHEY_TRIPLEX, 0.4, 1)
         lc_x1, lc_y1, lc_x2, lc_y2 = x1, y1, x1 + 50 + h1, y1 - 15
-        lc_coord = (lc_x1, lc_y1, lc_x2, lc_y2)
 
-        discard = False
+        relocate = False
         for j in range(len(label_coords)):
-            discard = False
-            if overlap(label_coords[j], lc_coord):
+            relocate = False
+            if overlap(label_coords[j], (lc_x1, lc_y1, lc_x2, lc_y2)):
                 print('discarding')
-                discard = True
-        if not discard:
+                relocate = True
+        in_view = True
+        if relocate:
+            print('relocating')
+            distance = lc_y2 - lc_y1
+            lc_y1 += distance
+            if lc_y1 < 0:
+                in_view = False
+            else:
+                lc_y2 += distance
+
+        cl = color  # Change the color of the target diagnostic frame.
+        if show_target and not i:
+            cl = (172, 47, 117)
+
+        cv2.rectangle(frame, (x1, y1), (x2, y2), cl, 1)
+        if in_view:
+            lc_coord = (lc_x1, lc_y1, lc_x2, lc_y2)
             label_coords.append(lc_coord)
-            cv2.rectangle(frame, (x1, y1), (x2, y2), color, 1)
             cv2.rectangle(frame, (lc_x1, lc_y1), (lc_x2, lc_y2), color, -1)
             cv2.putText(frame, score, (x1 + 10, y1 - 3), cv2.FONT_HERSHEY_SIMPLEX, 0.4, color_black)
 
@@ -163,8 +181,9 @@ def transform_boxes(
     transformed_boxes = []
     orig_x1, orig_y1, orig_x2, orig_y2 = origin_box
 
-    # Add origin dummy box for troubleshooting
-    transformed_boxes.append((orig_y1, orig_y1 + 1, orig_x1, orig_x1 + 1, 'target'))
+    if show_target:
+        # Add origin dummy box for troubleshooting
+        transformed_boxes.append((orig_y1, orig_y2, orig_x1, orig_x2, 'target'))
 
     # Calculate the width and height of the original and resized bounding box
     original_box_width = orig_x2 - orig_x1

@@ -17,7 +17,7 @@ class Predictor:
         # self.model.half()
         pass
 
-    def predict(self, image: np.ndarray) -> tuple[np.ndarray, list]:
+    def predict(self, image: np.ndarray, thresh: float = .4) -> tuple[np.ndarray, list]:
         """
         Perform inference using YOLO
         """
@@ -30,11 +30,11 @@ class Predictor:
         output = outputs[0].cpu()
         # Run markup
         # TODO: We need to transform the markup and place it on the original image from before the ROI zoom.
-        output_image, data = self.process_outputs(output, image)
+        output_image, data = self.process_outputs(output, image, thresh)
 
         return output_image, data
 
-    def process_outputs(self, outputs: Results, image: np.ndarray) -> tuple[np.ndarray, list]:
+    def process_outputs(self, outputs: Results, image: np.ndarray, thresh: float = .4) -> tuple[np.ndarray, list]:
         """
         Process model outputs for mark-up.
 
@@ -48,15 +48,16 @@ class Predictor:
             x1, y1, x2, y2 = box.xyxy[0]
             label = int(box.cls.numpy())
             score = float(box.conf.numpy())
-            label_with_confidence = f'{label} {score:.2f}'
+            if score > thresh:
+                label_with_confidence = f'{label} {score:.2f}'
 
-            data.append((x1, y1, x2, y2, label_with_confidence))
+                data.append((x1, y1, x2, y2, label_with_confidence))
 
-            if self.draw:
-                # Draw the bounding box
-                cv2.rectangle(image, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 1)
+                if self.draw:
+                    # Draw the bounding box
+                    cv2.rectangle(image, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 1)
 
-                # Put the label and confidence score
-                cv2.putText(image, label_with_confidence, (int(x1), int(y1) - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                    # Put the label and confidence score
+                    cv2.putText(image, label_with_confidence, (int(x1), int(y1) - 10),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
         return image, data

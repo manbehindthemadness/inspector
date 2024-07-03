@@ -69,7 +69,7 @@ class Camera:
 
         self.pipeline = pipeline
 
-    def run(self, callback: any = None):
+    def run(self, callback: any = None, thresh: float = .4):
         """
         This is the application capture loop.
         """
@@ -108,11 +108,12 @@ class Camera:
                 focus_frame, origins, target_size, boxes = crop_and_resize_frame(frame, boxes)
                 data = None
                 if callback:
-                    focus_frame, data = callback(focus_frame)
+                    focus_frame, data = callback(focus_frame, thresh)
 
                 # draw boxes
                 plot_boxes(frame, boxes, colors, scores)
-                plot_boxes(frame_manip, boxes, colors, scores)
+                if self.debug:
+                    plot_boxes(frame_manip, boxes, colors, scores)
 
                 if data is not None:  # Draw the boxes from the YOLO model.
                     cropped_size = target_size, target_size
