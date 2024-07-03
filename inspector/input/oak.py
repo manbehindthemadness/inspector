@@ -137,7 +137,6 @@ class Camera:
                 counter += 1
                 if (time.time() - start_time) > 1:
                     fps = counter / (time.time() - start_time)
-
                     counter = 0
                     start_time = time.time()
 

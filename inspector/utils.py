@@ -17,16 +17,13 @@ def crop_and_resize_frame(
     """
 
     try:
-        # Find the largest box
         largest_box = None
         largest_area = 0
-
         for box in boxes:
             y1 = int(frame.shape[0] * box[0])
             y2 = int(frame.shape[0] * box[2])
             x1 = int(frame.shape[1] * box[1])
             x2 = int(frame.shape[1] * box[3])
-
             area = (x2 - x1) * (y2 - y1)
             if area > largest_area:
                 largest_area = area
@@ -102,7 +99,8 @@ def plot_boxes(
 
     def overlap(b1, b2):
         """
-        Yeah, this doesn't seem to work...
+        This needs to be replaced with some kind of compound detection union.
+        the boxes like to jitter every other frame.
 
         (x1, y1, x2, y2), (x1, y1, x2, y2)
         """
