@@ -212,6 +212,11 @@ def transform_boxes(
 
 
 class KalmanFilter:
+    """
+    You guessed it, a super-fancy filter in the classical style of Rudolf E. Kálmán.
+
+    https://arxiv.org/pdf/1611.06467
+    """
     def __init__(self):
         self.dt = 1.0
         self.F = cp.array([[1, 0, self.dt, 0],
@@ -226,10 +231,16 @@ class KalmanFilter:
         self.x = cp.zeros((4, 1), dtype=cp.float32)
 
     def predict(self):
+        """
+        Apply temporal metrics.
+        """
         self.x = cp.dot(self.F, self.x)
         self.P = cp.dot(cp.dot(self.F, self.P), self.F.T) + self.Q
 
-    def update(self, z):
+    def update(self, z: float):
+        """
+        Update metrics with newly discovered values.
+        """
         y = z - cp.dot(self.H, self.x)
         s = cp.dot(self.H, cp.dot(self.P, self.H.T)) + self.R
         k = cp.dot(cp.dot(self.P, self.H.T), cp.linalg.inv(s))
@@ -239,6 +250,9 @@ class KalmanFilter:
 
 
 class Track:
+    """
+    Let's track some objects babah!
+    """
     def __init__(self, bbox):
         self.bbox = cp.array(bbox, dtype=cp.float32)
         self.kf = KalmanFilter()
@@ -246,23 +260,35 @@ class Track:
         self.id = 0
         self.hits = 0
 
-    def update(self, bbox):
+    def update(self, bbox: cp.ndarray):
+        """
+        Add newly found object tracks.
+        """
         self.bbox = cp.array(bbox, dtype=cp.float32)
         self.time_since_update = 0
         self.hits += 1
 
     def predict(self):
+        """
+        Apply kalman temporal predictions.
+        """
         self.kf.predict()
         self.time_since_update += 1
 
 
 class Sort:
+    """
+    The aptly named class that orders our detections.
+    """
     def __init__(self, max_age=1, min_hits=3):
         self.max_age = max_age
         self.min_hits = min_hits
         self.tracks = []
 
     def update(self, detections):
+        """
+        Updates our tracks with new detections.
+        """
         if len(self.tracks) == 0:
             for i in range(len(detections)):
                 self.tracks.append(Track(detections[i]))
@@ -279,15 +305,15 @@ class Sort:
                 distance_matrix[t, d] = cp.sqrt((trk[0] - det[0]) ** 2 + (trk[1] - det[1]) ** 2)
 
         row_ind, col_ind = cp.unravel_index(cp.argsort(distance_matrix.ravel()), distance_matrix.shape)
-        row_ind = row_ind.get().tolist()  # Convert to native Python list
-        col_ind = col_ind.get().tolist()  # Convert to native Python list
+        row_ind = row_ind.get().tolist()
+        col_ind = col_ind.get().tolist()
 
         used_rows = set()
         used_cols = set()
         for r, c in zip(row_ind, col_ind):
             if r in used_rows or c in used_cols:
                 continue
-            self.tracks[r].update(detections[c].get())  # Convert to numpy before updating
+            self.tracks[r].update(detections[c].get())
             updated_tracks.append(self.tracks[r])
             used_rows.add(r)
             used_cols.add(c)
@@ -302,7 +328,7 @@ class Sort:
             updated_tracks.append(self.tracks[i])
 
         for i in unused_detections:
-            new_track = Track(detections[i].get())  # Convert to numpy before creating new Track
+            new_track = Track(detections[i].get())
             updated_tracks.append(new_track)
 
         self.tracks = [t for t in updated_tracks if t.hits >= self.min_hits or t.time_since_update <= self.max_age]
