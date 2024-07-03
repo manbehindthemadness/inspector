@@ -2,7 +2,7 @@ import os
 from .input.oak import Camera
 from .inference import Predictor
 
-threshold = 0.4
+threshold = (0.4, 10)
 cwd = os.path.dirname(os.path.abspath(__file__))
 
 cam = Camera(debug=False)

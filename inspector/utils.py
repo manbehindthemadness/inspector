@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-
+import cupy as cp
 
 debug_pipeline = False
 show_target = True
@@ -209,3 +209,102 @@ def transform_boxes(
         )
 
     return transformed_boxes
+
+
+class KalmanFilter:
+    def __init__(self):
+        self.dt = 1.0
+        self.F = cp.array([[1, 0, self.dt, 0],
+                           [0, 1, 0, self.dt],
+                           [0, 0, 1, 0],
+                           [0, 0, 0, 1]], dtype=cp.float32)
+        self.H = cp.array([[1, 0, 0, 0],
+                           [0, 1, 0, 0]], dtype=cp.float32)
+        self.P = cp.eye(4, dtype=cp.float32)
+        self.Q = cp.eye(4, dtype=cp.float32) * 0.01
+        self.R = cp.eye(2, dtype=cp.float32) * 0.1
+        self.x = cp.zeros((4, 1), dtype=cp.float32)
+
+    def predict(self):
+        self.x = cp.dot(self.F, self.x)
+        self.P = cp.dot(cp.dot(self.F, self.P), self.F.T) + self.Q
+
+    def update(self, z):
+        y = z - cp.dot(self.H, self.x)
+        s = cp.dot(self.H, cp.dot(self.P, self.H.T)) + self.R
+        k = cp.dot(cp.dot(self.P, self.H.T), cp.linalg.inv(s))
+        self.x = self.x + cp.dot(k, y)
+        i = cp.eye(self.F.shape[1], dtype=cp.float32)
+        self.P = cp.dot(i - cp.dot(k, self.H), self.P)
+
+
+class Track:
+    def __init__(self, bbox):
+        self.bbox = cp.array(bbox, dtype=cp.float32)
+        self.kf = KalmanFilter()
+        self.time_since_update = 0
+        self.id = 0
+        self.hits = 0
+
+    def update(self, bbox):
+        self.bbox = cp.array(bbox, dtype=cp.float32)
+        self.time_since_update = 0
+        self.hits += 1
+
+    def predict(self):
+        self.kf.predict()
+        self.time_since_update += 1
+
+
+class Sort:
+    def __init__(self, max_age=1, min_hits=3):
+        self.max_age = max_age
+        self.min_hits = min_hits
+        self.tracks = []
+
+    def update(self, detections):
+        if len(self.tracks) == 0:
+            for i in range(len(detections)):
+                self.tracks.append(Track(detections[i]))
+            return self.tracks
+
+        updated_tracks = []
+        detections = cp.array(detections, dtype=cp.float32)
+
+        track_boxes = cp.array([t.bbox.get() for t in self.tracks], dtype=cp.float32)
+        distance_matrix = cp.zeros((len(track_boxes), len(detections)), dtype=cp.float32)
+
+        for t, trk in enumerate(track_boxes):
+            for d, det in enumerate(detections):
+                distance_matrix[t, d] = cp.sqrt((trk[0] - det[0]) ** 2 + (trk[1] - det[1]) ** 2)
+
+        row_ind, col_ind = cp.unravel_index(cp.argsort(distance_matrix.ravel()), distance_matrix.shape)
+        row_ind = row_ind.get().tolist()  # Convert to native Python list
+        col_ind = col_ind.get().tolist()  # Convert to native Python list
+
+        used_rows = set()
+        used_cols = set()
+        for r, c in zip(row_ind, col_ind):
+            if r in used_rows or c in used_cols:
+                continue
+            self.tracks[r].update(detections[c].get())  # Convert to numpy before updating
+            updated_tracks.append(self.tracks[r])
+            used_rows.add(r)
+            used_cols.add(c)
+
+        unused_tracks = [i for i in range(len(self.tracks)) if i not in used_rows]
+        unused_detections = [i for i in range(len(detections)) if i not in used_cols]
+
+        for i in unused_tracks:
+            self.tracks[i].predict()
+            if self.tracks[i].time_since_update > self.max_age:
+                continue
+            updated_tracks.append(self.tracks[i])
+
+        for i in unused_detections:
+            new_track = Track(detections[i].get())  # Convert to numpy before creating new Track
+            updated_tracks.append(new_track)
+
+        self.tracks = [t for t in updated_tracks if t.hits >= self.min_hits or t.time_since_update <= self.max_age]
+
+        return self.tracks

@@ -69,7 +69,7 @@ class Camera:
 
         self.pipeline = pipeline
 
-    def run(self, callback: any = None, thresh: float = .4):
+    def run(self, callback: any = None, thresh: tuple[float, int] = (0.4, 10)):
         """
         This is the application capture loop.
         """
