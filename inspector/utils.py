@@ -85,7 +85,7 @@ def crop_and_resize_frame(
         if debug_pipeline:
             print(f"Error occurred: {e}")
         result = cv2.resize(frame, (target_size, target_size), interpolation=cv2.INTER_LINEAR)
-        x1, y1, x2, y2 = 0, 0, 0, 0  # If there's an error, the coordinates will be (0, 0)
+        x1, y1, x2, y2 = 0, 0, frame.shape[0], frame.shape[1]  # If there's an error, the coordinates will be (0, 0)
 
     return result, (x1, y1, x2, y2), target_size, boxes
 

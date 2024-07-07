@@ -10,7 +10,7 @@ class Camera:
     """
     Load up the camera pipeline and resources.`
     """
-    def __init__(self, debug: bool = False):
+    def __init__(self, debug: bool = False, preprocess: bool = True):
         self.debug = debug
         self.nn_path = blobconverter.from_zoo(
             name="mobile_object_localizer_192x192",
@@ -23,6 +23,7 @@ class Camera:
         self.preview_height = 800
 
         self.threshold = 0.2
+        self.preprocess = preprocess
 
         pipeline = dai.Pipeline()
 
@@ -105,6 +106,8 @@ class Camera:
                 colors = colors_full[mask]
                 scores = detection_scores[mask]
 
+                if not self.preprocess:
+                    boxes = list()
                 focus_frame, origins, target_size, boxes = crop_and_resize_frame(frame, boxes)
                 data = None
                 if callback:

@@ -5,7 +5,7 @@ from .inference import Predictor
 threshold = 0.4
 cwd = os.path.dirname(os.path.abspath(__file__))
 
-cam = Camera(debug=False)
+cam = Camera(debug=False, preprocess=False)
 predictor = Predictor(
     model_path=f'{cwd}/models/medium.pt',
     # draw=True,
