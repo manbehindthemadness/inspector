@@ -10,8 +10,15 @@ class Camera:
     """
     Load up the camera pipeline and resources.`
     """
-    def __init__(self, debug: bool = False, preprocess: bool = True):
+    def __init__(
+            self,
+            debug: bool = False,
+            preprocess: bool = True,
+            draw: bool = True,
+    ):
         self.debug = debug
+        self.preprocess = preprocess
+        self.draw = draw
         self.nn_path = blobconverter.from_zoo(
             name="mobile_object_localizer_192x192",
             zoo_type="depthai",
@@ -23,7 +30,6 @@ class Camera:
         self.preview_height = 800
 
         self.threshold = 0.2
-        self.preprocess = preprocess
 
         pipeline = dai.Pipeline()
 
@@ -115,13 +121,14 @@ class Camera:
 
                 # draw boxes
                 plot_boxes(frame, boxes, colors, scores)
-                if self.debug:
+                if self.debug and self.draw:
                     plot_boxes(frame_manip, boxes, colors, scores)
 
                 if data is not None:  # Draw the boxes from the YOLO model.
                     cropped_size = target_size, target_size
                     yolo_boxes = transform_boxes(data, origins, cropped_size)
-                    plot_boxes(frame, yolo_boxes, None, None, color=(0, 255, 0))
+                    if self.draw:
+                        plot_boxes(frame, yolo_boxes, None, None, color=(0, 255, 0))
 
                 # show fps and predicted count
                 color_black, color_white = (0, 0, 0), (255, 255, 255)
