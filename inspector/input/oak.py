@@ -18,6 +18,13 @@ class Camera(CaptureBase):
     """
     AF = True
 
+    plain_image = None
+    marked_image = None
+    image_name = 'cap_0000'
+
+    control_queue = None
+    ctrl = None
+
     def __init__(self, debug: bool = False, preprocess: bool = True, draw: bool = True,
                  camera_model: CAMERA_MODELS = 'oak-d'):
         super().__init__(debug, preprocess, draw)
@@ -48,7 +55,7 @@ class Camera(CaptureBase):
         detection_nn.setNumInferenceThreads(2)
 
         # Color camera
-        cam = pipeline.create(dai.node.ColorCamera)
+        self.cam = cam = pipeline.create(dai.node.ColorCamera)
         match camera_model:
             case 'oak-d sr':
                 cam.setBoardSocket(dai.CameraBoardSocket.CAM_B)
@@ -56,6 +63,10 @@ class Camera(CaptureBase):
         cam.setPreviewSize(self.preview_width, self.preview_height)
         cam.setInterleaved(False)
         cam.setFps(25)
+
+        control_in = pipeline.createXLinkIn()
+        control_in.setStreamName('control')
+        control_in.out.link(cam.inputControl)
 
         # Create manip
         manip = pipeline.create(dai.node.ImageManip)
@@ -85,6 +96,66 @@ class Camera(CaptureBase):
 
         self.pipeline = pipeline
 
+        self.ctrl = dai.CameraControl()
+
+    def _toggle_focus(self):
+        """
+        Toggles autofocus.
+        """
+        self.auto_focus = not self.auto_focus
+        self._set_osd_message(f'toggle auto focus {self.auto_focus}')
+        match self.auto_focus:
+            case True:
+                self.ctrl.setAutoFocusMode(dai.CameraControl.AutoFocusMode.CONTINUOUS_VIDEO)
+                self.ctrl.setAutoFocusTrigger()  # Trigger autofocus
+            case False:
+                self.ctrl.setAutoFocusMode(dai.CameraControl.AutoFocusMode.OFF)
+                self._set_focus()
+        self.control_queue.send(self.ctrl)
+
+    def _set_focus(self, value_shift: int = 0):
+        """
+        This will send an autofocus adjustment to the camera.
+        """
+        if not self.auto_focus:
+            self.focus += value_shift
+            self.focus = np.clip(self.focus, 0, 255)
+            self.ctrl.setManualFocus(self.focus)
+            self.control_queue.send(self.ctrl)
+            self._set_osd_message(f'focus {value_shift}, now {self.focus}')
+        else:
+            self._set_osd_message('autofocus enabled')
+
+    def _focus_control(self):
+        """
+        This is a callback allowing us to manually control the camera focus.
+        """
+        key = cv2.waitKey(1) & 0xFF
+        match key:
+            case 32:
+                images = [self.plain_image, self.marked_image]
+                if all(element is not None for element in images):
+                    self._capture_image(self.image_name, images)
+                else:
+                    self._set_osd_message('no images available to save')
+            case 27:
+                self._set_osd_message('exiting application')
+                self._exit()
+            case 149:
+                self._set_focus(1)
+            case 151:
+                self._set_focus(8)
+            case 154:
+                self._set_focus(32)
+            case 156:
+                self._set_focus(-1)
+            case 153:
+                self._set_focus(-8)
+            case 155:
+                self._set_focus(-32)
+            case 158:
+                self._toggle_focus()
+
     def run(self, callback: any = None, thresh: float = .4):
         """
         This is the application capture loop.
@@ -95,14 +166,17 @@ class Camera(CaptureBase):
             q_manip = device.getOutputQueue(name="manip", maxSize=4, blocking=False)
             q_nn = device.getOutputQueue(name="nn", maxSize=4, blocking=False)
 
+            self.control_queue = device.getInputQueue('control')
+
             self.set_times()
 
-            while True:
+            while not self.term:
                 in_cam = q_cam.get()
                 in_nn = q_nn.get()
                 in_manip = q_manip.get()
 
                 frame = in_cam.getCvFrame()  # noqa
+                self.plain_image = np.array(frame)
                 frame_manip = in_manip.getCvFrame()  # noqa
                 frame_manip = cv2.cvtColor(frame_manip, cv2.COLOR_RGB2BGR)
 
@@ -118,12 +192,10 @@ class Camera(CaptureBase):
                 self.plot_boxes(frame, boxes, colors, scores)
                 if self.debug and self.draw:
                     self.plot_boxes(frame_manip, boxes, colors, scores)
+                self.marked_image = np.array(frame)
 
                 self.viewer(
-                    frame, focus_frame, data, origins, target_size,
+                    frame, focus_frame, data, origins, target_size, self._focus_control
                 )
-
-                if cv2.waitKey(1) == ord('q'):
-                    break
 
             cv2.destroyAllWindows()

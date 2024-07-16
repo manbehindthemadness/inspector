@@ -8,11 +8,24 @@ class CaptureBase:
     """
     Load an image from file and process it.
     """
+    term = False
+
+    image_dir = '~/Pictures/'
+
     counter = None
     fps = None
     start_time = None
     np.random.seed(0)
     colors_full = np.random.randint(255, size=(100, 3), dtype=int)
+
+    cam = None
+    last_focus = focus = 100
+    auto_focus = True
+
+    osd_timer = 0
+    osd_message = str()
+
+    font = cv2.FONT_HERSHEY_SIMPLEX
 
     def __init__(
             self,
@@ -27,6 +40,32 @@ class CaptureBase:
 
         self.plot_boxes = plot_boxes
         self.transform_boxes = transform_boxes
+
+    def _exit(self):
+        """
+        Bails us out of the run time.
+        """
+        self.term = True
+
+    def _set_osd_message(self, message: str, timer: int = 15):
+        """
+        This will set out on-screen message along with the timer.
+        """
+        self.osd_message = message.upper()
+        print(self.osd_message)
+        self.osd_timer = timer
+
+    def _capture_image(self, name: str, images: list[np.ndarray]):
+        """
+        If used in the viewer callback we can selectively capture images.
+        images will be a list of images that will be saved as <name>_1.jpg, <name_2.jpg>...
+        """
+        message = str()
+        for idx, image in enumerate(images):
+            target_file = f"{self.image_dir}{name}_{idx}.jpg"
+            cv2.imwrite(target_file, image)
+            message += f"saved {target_file}\n"
+        self._set_osd_message(message)
 
     @staticmethod
     def add_noise(image: np.ndarray, mean: float = 0, std: float = 10) -> np.ndarray:
@@ -71,10 +110,33 @@ class CaptureBase:
             data: list,
             origins: tuple[int, int, int, int],
             target_size: int,
+            callback: any = None
     ):
         """
         Render text and display final output on the screen.
         """
+        def draw_centered_osd_message(image: np.ndarray):
+            """
+            Aptly named...
+            """
+            font = self.font
+            font_scale = 0.5
+            font_thickness = 1
+
+            text_color = (0, 255, 0)
+
+            lines = self.osd_message.split('\n')
+            (text_width, text_height), baseline = cv2.getTextSize(lines[0], font, font_scale, font_thickness)
+            line_height = text_height + baseline
+            total_text_height = line_height * len(lines)
+            start_y = (image.shape[0] - total_text_height) // 2 + text_height
+
+            for i, line in enumerate(lines):
+                (line_width, _), _ = cv2.getTextSize(line, font, font_scale, font_thickness)
+                start_x = (image.shape[1] - line_width) // 2
+                y = start_y + i * line_height
+                cv2.putText(image, line, (start_x, y), font, font_scale, text_color, font_thickness)
+
         if data is not None:  # Draw the boxes from the YOLO model.
             cropped_size = target_size, target_size
             yolo_boxes = self.transform_boxes(data, origins, cropped_size)
@@ -84,15 +146,22 @@ class CaptureBase:
         # show fps and predicted count
         color_black, color_white = (0, 0, 0), (255, 255, 255)
         label_fps = "Fps: {:.2f}".format(self.fps)
-        (w1, h1), _ = cv2.getTextSize(label_fps, cv2.FONT_HERSHEY_TRIPLEX, 0.4, 1)
+        (w1, h1), _ = cv2.getTextSize(label_fps, self.font, 0.4, 1)
         cv2.rectangle(frame, (0, frame.shape[0] - h1 - 6), (w1 + 2, frame.shape[0]), color_white, -1)
-        cv2.putText(frame, label_fps, (2, frame.shape[0] - 4), cv2.FONT_HERSHEY_TRIPLEX, 0.4, color_black)
+        cv2.putText(frame, label_fps, (2, frame.shape[0] - 4), self.font, 0.4, color_black)
+
+        if callback:
+            callback()
+
+        if self.osd_timer > 0:
+            draw_centered_osd_message(frame)
 
         # show frame
         cv2.imshow("Localizer", frame)
         if self.debug:
             cv2.imshow("Focused", focus_frame)
 
+        self.osd_timer -= 1
         self.counter += 1
         if (time.time() - self.start_time) > 1:
             self.fps = self.counter / (time.time() - self.start_time)
