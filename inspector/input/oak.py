@@ -2,20 +2,25 @@ import cv2
 import depthai as dai
 import numpy as np
 import blobconverter
-import time
-from inspector.utils import plot_boxes, crop_and_resize_frame, transform_boxes
+from inspector.input.base import CaptureBase
+
+CAMERA_MODELS = [
+    'oak-d',
+    'oak-d pro',
+    'oak-d sr',
+    'oak-d lr',
+]
 
 
-class Camera:
+class Camera(CaptureBase):
     """
     Load up the camera pipeline and resources.`
     """
-    def __init__(
-            self,
-            debug: bool = False,
-            preprocess: bool = True,
-            draw: bool = True,
-    ):
+    AF = True
+
+    def __init__(self, debug: bool = False, preprocess: bool = True, draw: bool = True,
+                 camera_model: CAMERA_MODELS = 'oak-d'):
+        super().__init__(debug, preprocess, draw)
         self.debug = debug
         self.preprocess = preprocess
         self.draw = draw
@@ -44,6 +49,10 @@ class Camera:
 
         # Color camera
         cam = pipeline.create(dai.node.ColorCamera)
+        match camera_model:
+            case 'oak-d sr':
+                cam.setBoardSocket(dai.CameraBoardSocket.CAM_B)
+                self.AF = False
         cam.setPreviewSize(self.preview_width, self.preview_height)
         cam.setInterleaved(False)
         cam.setFps(25)
@@ -82,16 +91,11 @@ class Camera:
         """
 
         with dai.Device(self.pipeline) as device:
-            np.random.seed(0)
-            colors_full = np.random.randint(255, size=(100, 3), dtype=int)
-
             q_cam = device.getOutputQueue(name="cam", maxSize=4, blocking=False)
             q_manip = device.getOutputQueue(name="manip", maxSize=4, blocking=False)
             q_nn = device.getOutputQueue(name="nn", maxSize=4, blocking=False)
 
-            start_time = time.time()
-            counter = 0
-            fps = 0
+            self.set_times()
 
             while True:
                 in_cam = q_cam.get()
@@ -106,49 +110,20 @@ class Camera:
                 detection_boxes = np.array(in_nn.getLayerFp16("ExpandDims")).reshape((100, 4))  # noqa
                 detection_scores = np.array(in_nn.getLayerFp16("ExpandDims_2")).reshape((100,))  # noqa
 
-                # keep boxes bigger than threshold
-                mask = detection_scores >= self.threshold
-                boxes = detection_boxes[mask]
-                colors = colors_full[mask]
-                scores = detection_scores[mask]
-
-                if not self.preprocess:
-                    boxes = list()
-                focus_frame, origins, target_size, boxes = crop_and_resize_frame(frame, boxes)
-                data = None
-                if callback:
-                    focus_frame, data = callback(focus_frame, thresh)
+                focus_frame, boxes, colors, scores, origins, target_size, data = self.prepare_regions(
+                    frame, thresh, detection_scores, detection_boxes, callback
+                )
 
                 # draw boxes
-                plot_boxes(frame, boxes, colors, scores)
+                self.plot_boxes(frame, boxes, colors, scores)
                 if self.debug and self.draw:
-                    plot_boxes(frame_manip, boxes, colors, scores)
+                    self.plot_boxes(frame_manip, boxes, colors, scores)
 
-                if data is not None:  # Draw the boxes from the YOLO model.
-                    cropped_size = target_size, target_size
-                    yolo_boxes = transform_boxes(data, origins, cropped_size)
-                    if self.draw:
-                        plot_boxes(frame, yolo_boxes, None, None, color=(0, 255, 0))
-
-                # show fps and predicted count
-                color_black, color_white = (0, 0, 0), (255, 255, 255)
-                label_fps = "Fps: {:.2f}".format(fps)
-                (w1, h1), _ = cv2.getTextSize(label_fps, cv2.FONT_HERSHEY_TRIPLEX, 0.4, 1)
-                cv2.rectangle(frame, (0, frame.shape[0] - h1 - 6), (w1 + 2, frame.shape[0]), color_white, -1)
-                cv2.putText(frame, label_fps, (2, frame.shape[0] - 4), cv2.FONT_HERSHEY_TRIPLEX,
-                            0.4, color_black)
-
-                # show frame
-                cv2.imshow("Localizer", frame)
-                if self.debug:
-                    cv2.imshow("Manip + NN", frame_manip)
-                    cv2.imshow("Focused", focus_frame)
-
-                counter += 1
-                if (time.time() - start_time) > 1:
-                    fps = counter / (time.time() - start_time)
-                    counter = 0
-                    start_time = time.time()
+                self.viewer(
+                    frame, focus_frame, data, origins, target_size,
+                )
 
                 if cv2.waitKey(1) == ord('q'):
                     break
+
+            cv2.destroyAllWindows()

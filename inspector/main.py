@@ -1,5 +1,5 @@
 import os
-from .inference import Predictor
+from inspector.inference import Predictor
 
 USE_OAK = True  # Toggle this to use the camera or a still image.
 threshold = 0.4  # Detection threshold
@@ -8,7 +8,7 @@ kwargs = dict()
 if USE_OAK:
     from .input.oak import Camera
 else:
-    from .input.still import Still as Camera
+    from .input.still import StillImage as Camera
     kwargs.update({
         'image_path': 'test.png',  # or whatever still image you choose.
         'fuzz': (1.0, 0.5)  # This adds fake camera transistor noise.
