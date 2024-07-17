@@ -141,19 +141,19 @@ class Camera(CaptureBase):
             case 27:
                 self._set_osd_message('exiting application')
                 self._exit()
-            case 149:
+            case 55:
                 self._set_focus(1)
-            case 151:
+            case 56:
                 self._set_focus(8)
-            case 154:
+            case 57:
                 self._set_focus(32)
-            case 156:
+            case 49:
                 self._set_focus(-1)
-            case 153:
+            case 50:
                 self._set_focus(-8)
-            case 155:
+            case 51:
                 self._set_focus(-32)
-            case 158:
+            case 48:
                 self._toggle_focus()
 
     def run(self, callback: any = None, thresh: float = .4):
