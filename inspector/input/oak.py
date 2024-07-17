@@ -25,6 +25,8 @@ class Camera(CaptureBase):
     control_queue = None
     ctrl = None
 
+    denoise = False
+
     def __init__(self, debug: bool = False, preprocess: bool = True, draw: bool = True,
                  camera_model: CAMERA_MODELS = 'oak-d'):
         super().__init__(debug, preprocess, draw)
@@ -98,6 +100,23 @@ class Camera(CaptureBase):
 
         self.ctrl = dai.CameraControl()
 
+    @staticmethod
+    def get_help():
+        """
+        This just returns a string of useful help information.
+        """
+        result = ("Keyboard:\n\n"
+                  "Esc - Exit program\n"
+                  "Spacebar - Capture image\n"
+                  "H - Display this message\n\n"
+                  "Numpad:\n\n"
+                  "[ (7) focus +1 ][ (8) focus +8 ][ (9) focus +32 ]\n\n"
+                  "[ (4) ------ ][ (5) denoiser ][ (6) ------- ]\n\n"
+                  "[ (1) focus -1 ][ (2) focus -8 ][ (3) focus -32 ]\n\n"
+                  "[ (0) toggle autofocus ][ (.) toggle preprocess ]")
+
+        return result
+
     def _toggle_focus(self):
         """
         Toggles autofocus.
@@ -126,35 +145,58 @@ class Camera(CaptureBase):
         else:
             self._set_osd_message('manual focus disabled')
 
+    def _toggle_denoise(self):
+        """
+        Enable / disable the de-noising filters.
+        """
+        self.denoise = not self.denoise
+        match self.denoise:
+            case True:
+                self.ctrl.setChromaDenoise(4)
+                self.ctrl.setLumaDenoise(3)
+            case False:
+                self.ctrl.setChromaDenoise(0)
+                self.ctrl.setLumaDenoise(0)
+        self.control_queue.send(self.ctrl)
+        self._set_osd_message(f"denoising: {self.denoise}")
+
     def _focus_control(self):
         """
         This is a callback allowing us to manually control the camera focus.
         """
         key = cv2.waitKey(1) & 0xFF
         match key:
-            case 32:
+            case 32:  # Space
                 images = [self.plain_image, self.marked_image]
                 if all(element is not None for element in images):
                     self._capture_image(self.image_name, images)
                 else:
                     self._set_osd_message('no images available to save')
-            case 27:
+            case 27:  # Esc
                 self._set_osd_message('exiting application')
                 self._exit()
-            case 55:
+            case 55:  # Num 7
                 self._set_focus(1)
-            case 56:
+            case 56:  # Num 8
                 self._set_focus(8)
-            case 57:
+            case 57:  # Num 9
                 self._set_focus(32)
-            case 49:
+            case 49:  # Num 1
                 self._set_focus(-1)
-            case 50:
+            case 50:  # Num 2
                 self._set_focus(-8)
-            case 51:
+            case 51:  # Num 3
                 self._set_focus(-32)
-            case 48:
+            case 48:  # Num 0
                 self._toggle_focus()
+            case 46:  # Num period
+                self._toggle_preprocessing()
+            case 53:  # Num 5
+                self._toggle_denoise()
+            case 104:  # Keyboard H
+                self.last_opacity = float(self.osd_opacity)
+                self.osd_opacity = 1.0
+                self._set_osd_message(self.get_help(), 120, upper=False)
 
     def run(self, callback: any = None, thresh: float = .4):
         """
@@ -169,6 +211,9 @@ class Camera(CaptureBase):
             self.control_queue = device.getInputQueue('control')
 
             self.set_times()
+
+            self.auto_focus = False
+            self._toggle_focus()
 
             while not self.term:
                 in_cam = q_cam.get()
@@ -196,7 +241,8 @@ class Camera(CaptureBase):
                     self.plot_boxes(frame_manip, boxes, colors, scores)
 
                 self.viewer(
-                    frame, focus_frame, data, origins, target_size, self._focus_control
+                    frame, focus_frame, data, origins, target_size, self._focus_control,
+                    extra=' press "H" for help'
                 )
                 self.marked_image = np.array(frame)
 

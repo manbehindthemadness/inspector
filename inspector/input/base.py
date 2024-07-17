@@ -25,6 +25,8 @@ class CaptureBase:
 
     osd_timer = 0
     osd_message = str()
+    osd_opacity = 0.4
+    last_opacity = float(osd_opacity)
 
     font = cv2.FONT_HERSHEY_SIMPLEX
 
@@ -47,6 +49,13 @@ class CaptureBase:
         Bails us out of the run time.
         """
         self.term = True
+
+    def _toggle_preprocessing(self):
+        """
+        Aptly named.
+        """
+        self.preprocess = not self.preprocess
+        self._set_osd_message(f'preprocessing set to: {self.preprocess}')
 
     def _set_osd_message(self, message: str, timer: int = 15, upper: bool = True):
         """
@@ -115,20 +124,30 @@ class CaptureBase:
             data: list,
             origins: tuple[int, int, int, int],
             target_size: int,
-            callback: any = None
+            callback: any = None,
+            extra: str = str(),
     ):
         """
         Render text and display final output on the screen.
         """
-        def draw_centered_osd_message(image: np.ndarray):
+
+        def draw_centered_osd_message(image: np.ndarray, backdrop: bool = True):
             """
-            Aptly named...
+            Draws an On-Screen Display (OSD) message centered on the given image.
+
+            Args:
+                image (np.ndarray): The image on which to draw the message.
+                backdrop (bool): If True, a semi-transparent black backdrop is drawn behind
+                                    the text for better visibility.
             """
+            osd_origins = list()
+            x1s, x2s, y1s, y2s = list(), list(), list(), list()
             font = self.font
             font_scale = 0.5
             font_thickness = 1
 
-            text_color = (255, 255, 0)
+            text_color = (255, 255, 255)
+            backdrop_color = (0, 0, 0)
 
             lines = self.osd_message.split('\n')
             (text_width, text_height), baseline = cv2.getTextSize(lines[0], font, font_scale, font_thickness)
@@ -140,6 +159,25 @@ class CaptureBase:
                 (line_width, _), _ = cv2.getTextSize(line, font, font_scale, font_thickness)
                 start_x = (image.shape[1] - line_width) // 2
                 y = start_y + i * line_height
+
+                if backdrop:
+                    x1s.append(start_x - 5)
+                    y1s.append(y - text_height - 5)
+                    x2s.append(start_x + line_width + 5)
+                    y2s.append(y + baseline + 5)
+
+                osd_origins.append((line, start_x, y))
+
+            if backdrop:
+                top_left, bottom_right = (min(x1s), min(y1s)), (max(x2s), max(y2s))
+                sub_img = image[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]]
+                backdrop_rect = np.zeros(sub_img.shape, dtype=np.uint8)
+                backdrop_rect[:] = backdrop_color
+                blended_rect = cv2.addWeighted(sub_img, 1 - self.osd_opacity, backdrop_rect, self.osd_opacity, 0)
+                image[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]] = blended_rect
+
+            for i in osd_origins:
+                line, start_x, y = i
                 cv2.putText(
                     image, line, (start_x, y), font, font_scale, text_color, font_thickness, lineType=cv2.LINE_AA
                 )
@@ -153,6 +191,7 @@ class CaptureBase:
         # show fps and predicted count
         color_black, color_white = (0, 0, 0), (255, 255, 255)
         label_fps = "Fps: {:.2f}".format(self.fps)
+        label_fps += extra
         (w1, h1), _ = cv2.getTextSize(label_fps, self.font, 0.4, 1)
         cv2.rectangle(frame, (0, frame.shape[0] - h1 - 6), (w1 + 2, frame.shape[0]), color_white, -1)
         cv2.putText(
@@ -164,6 +203,8 @@ class CaptureBase:
 
         if self.osd_timer > 0:
             draw_centered_osd_message(frame)
+        else:
+            self.osd_opacity = float(self.last_opacity)
 
         # show frame
         cv2.imshow("Localizer", frame)

@@ -19,7 +19,7 @@ cwd = os.path.dirname(os.path.abspath(__file__))
 
 cam = Camera(
     debug=False,
-    preprocess=False,
+    # preprocess=False,
     # draw=False
 )
 predictor = Predictor(
