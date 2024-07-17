@@ -1,9 +1,22 @@
 import cv2
 import numpy as np
+import datetime
 
 
 debug_pipeline = False
 show_target = True
+
+
+def get_utc_datetime_now_ticks():
+    # Get the current UTC datetime
+    now = datetime.datetime.utcnow()
+
+    # Calculate the number of ticks (nanoseconds since the Unix epoch)
+    epoch = datetime.datetime(1970, 1, 1)
+    ticks = int((now - epoch).total_seconds() * 1e9)
+
+    # Return the ticks as a string
+    return str(ticks)
 
 
 def crop_and_resize_frame(

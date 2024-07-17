@@ -20,7 +20,7 @@ class Camera(CaptureBase):
 
     plain_image = None
     marked_image = None
-    image_name = 'cap_0000'
+    image_name = 'cap'
 
     control_queue = None
     ctrl = None
@@ -124,7 +124,7 @@ class Camera(CaptureBase):
             self.control_queue.send(self.ctrl)
             self._set_osd_message(f'focus {value_shift}, now {self.focus}')
         else:
-            self._set_osd_message('autofocus enabled')
+            self._set_osd_message('manual focus disabled')
 
     def _focus_control(self):
         """
@@ -175,6 +175,8 @@ class Camera(CaptureBase):
                 in_nn = q_nn.get()
                 in_manip = q_manip.get()
 
+                self.focus = in_cam.getLensPosition()  # noqa
+
                 frame = in_cam.getCvFrame()  # noqa
                 self.plain_image = np.array(frame)
                 frame_manip = in_manip.getCvFrame()  # noqa
@@ -192,10 +194,10 @@ class Camera(CaptureBase):
                 self.plot_boxes(frame, boxes, colors, scores)
                 if self.debug and self.draw:
                     self.plot_boxes(frame_manip, boxes, colors, scores)
-                self.marked_image = np.array(frame)
 
                 self.viewer(
                     frame, focus_frame, data, origins, target_size, self._focus_control
                 )
+                self.marked_image = np.array(frame)
 
             cv2.destroyAllWindows()

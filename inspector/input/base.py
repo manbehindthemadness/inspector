@@ -1,7 +1,8 @@
+import os
 import cv2
 import numpy as np
 import time
-from inspector.utils import plot_boxes, crop_and_resize_frame, transform_boxes
+from inspector.utils import plot_boxes, crop_and_resize_frame, transform_boxes, get_utc_datetime_now_ticks
 
 
 class CaptureBase:
@@ -19,7 +20,7 @@ class CaptureBase:
     colors_full = np.random.randint(255, size=(100, 3), dtype=int)
 
     cam = None
-    last_focus = focus = 100
+    focus = 100
     auto_focus = True
 
     osd_timer = 0
@@ -47,11 +48,13 @@ class CaptureBase:
         """
         self.term = True
 
-    def _set_osd_message(self, message: str, timer: int = 15):
+    def _set_osd_message(self, message: str, timer: int = 15, upper: bool = True):
         """
         This will set out on-screen message along with the timer.
         """
-        self.osd_message = message.upper()
+        if upper:
+            message = message.upper()
+        self.osd_message = message
         print(self.osd_message)
         self.osd_timer = timer
 
@@ -60,12 +63,14 @@ class CaptureBase:
         If used in the viewer callback we can selectively capture images.
         images will be a list of images that will be saved as <name>_1.jpg, <name_2.jpg>...
         """
+        self.image_dir = os.path.expanduser('~/Pictures/')
         message = str()
+        name += f"_{get_utc_datetime_now_ticks()}"
         for idx, image in enumerate(images):
             target_file = f"{self.image_dir}{name}_{idx}.jpg"
             cv2.imwrite(target_file, image)
-            message += f"saved {target_file}\n"
-        self._set_osd_message(message)
+            message += f"SAVED: {target_file}\n"
+        self._set_osd_message(message, upper=False)
 
     @staticmethod
     def add_noise(image: np.ndarray, mean: float = 0, std: float = 10) -> np.ndarray:
@@ -123,7 +128,7 @@ class CaptureBase:
             font_scale = 0.5
             font_thickness = 1
 
-            text_color = (0, 255, 0)
+            text_color = (255, 255, 0)
 
             lines = self.osd_message.split('\n')
             (text_width, text_height), baseline = cv2.getTextSize(lines[0], font, font_scale, font_thickness)
@@ -135,7 +140,9 @@ class CaptureBase:
                 (line_width, _), _ = cv2.getTextSize(line, font, font_scale, font_thickness)
                 start_x = (image.shape[1] - line_width) // 2
                 y = start_y + i * line_height
-                cv2.putText(image, line, (start_x, y), font, font_scale, text_color, font_thickness)
+                cv2.putText(
+                    image, line, (start_x, y), font, font_scale, text_color, font_thickness, lineType=cv2.LINE_AA
+                )
 
         if data is not None:  # Draw the boxes from the YOLO model.
             cropped_size = target_size, target_size
@@ -148,7 +155,9 @@ class CaptureBase:
         label_fps = "Fps: {:.2f}".format(self.fps)
         (w1, h1), _ = cv2.getTextSize(label_fps, self.font, 0.4, 1)
         cv2.rectangle(frame, (0, frame.shape[0] - h1 - 6), (w1 + 2, frame.shape[0]), color_white, -1)
-        cv2.putText(frame, label_fps, (2, frame.shape[0] - 4), self.font, 0.4, color_black)
+        cv2.putText(
+            frame, label_fps, (2, frame.shape[0] - 4), self.font, 0.4, color_black, lineType=cv2.LINE_AA
+        )
 
         if callback:
             callback()
