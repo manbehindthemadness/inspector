@@ -167,11 +167,14 @@ class Camera(CaptureBase):
         key = cv2.waitKey(1) & 0xFF
         match key:
             case 32:  # Space
-                images = [self.plain_image, self.marked_image]
-                if all(element is not None for element in images):
-                    self._capture_image(self.image_name, images)
+                if not self.denoise:
+                    images = [self.plain_image, self.marked_image]
+                    if all(element is not None for element in images):
+                        self._capture_image(self.image_name, images)
+                    else:
+                        self._set_osd_message('no images available to save')
                 else:
-                    self._set_osd_message('no images available to save')
+                    self._set_osd_message('image capture not available when denoise is enabled')
             case 27:  # Esc
                 self._set_osd_message('exiting application')
                 self._exit()
