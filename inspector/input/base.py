@@ -44,6 +44,8 @@ class CaptureBase:
         self.plot_boxes = plot_boxes
         self.transform_boxes = transform_boxes
 
+        print(cv2.getBuildInformation())
+
     def _exit(self):
         """
         Bails us out of the run time.
@@ -207,6 +209,8 @@ class CaptureBase:
             self.osd_opacity = float(self.last_opacity)
 
         # show frame
+        cv2.namedWindow('Localizer', cv2.WINDOW_NORMAL, )
+        cv2.resizeWindow('Localizer', 800, 800)
         cv2.imshow("Localizer", frame)
         if self.debug:
             cv2.imshow("Focused", focus_frame)
