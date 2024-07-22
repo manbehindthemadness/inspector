@@ -16,7 +16,9 @@ class Camera(CaptureBase):
     """
     Load up the camera pipeline and resources.`
     """
+    device = None
     AF = True
+    has_AF = True
 
     plain_image = None
     marked_image = None
@@ -26,6 +28,8 @@ class Camera(CaptureBase):
     ctrl = None
 
     denoise = False
+
+    specs = str()
 
     def __init__(self, debug: bool = False, preprocess: bool = True, draw: bool = True,
                  camera_model: CAMERA_MODELS = 'oak-d'):
@@ -100,8 +104,33 @@ class Camera(CaptureBase):
 
         self.ctrl = dai.CameraControl()
 
-    @staticmethod
-    def get_help():
+    def get_specs(self) -> str:
+        """
+        Collect a string of the camera's specifications.
+        """
+        result = str('color camera not found')
+        if self.device is not None:
+            cameras = self.device.getConnectedCameraFeatures()
+            item = None
+            for camera in cameras:
+                for supported_type in camera.supportedTypes:
+                    if supported_type.name == 'COLOR':
+                        item = camera
+                pass
+            if item is not None:
+                self.has_AF = item.hasAutofocus
+                result = str()
+                values = [
+                    f"sensorName: {item.sensorName}",
+                    f"hasAutoFocus: {item.hasAutofocus}",
+                    f"resolution: {item.width}x{item.height}",
+                          ]
+                for value in values:
+                    result += f"{value}\n"
+        self.specs = f"\n\n Camera:\n\n{result}"
+        return result
+
+    def get_help(self):
         """
         This just returns a string of useful help information.
         """
@@ -113,39 +142,46 @@ class Camera(CaptureBase):
                   "[ (7) focus +1 ][ (8) focus +8 ][ (9) focus +32 ]\n\n"
                   "[ (4) ------ ][ (5) denoiser ][ (6) ------- ]\n\n"
                   "[ (1) focus -1 ][ (2) focus -8 ][ (3) focus -32 ]\n\n"
-                  "[ (0) toggle autofocus ][ (.) toggle preprocess ]")
+                  f"[ (0) toggle autofocus ][ (.) toggle preprocess ]{self.specs}")
 
         return result
 
-    def _toggle_focus(self):
+    def _toggle_focus(self, report: bool = True):
         """
         Toggles autofocus.
         """
-        self.auto_focus = not self.auto_focus
-        self._set_osd_message(f'toggle auto focus {self.auto_focus}')
-        match self.auto_focus:
-            case True:
-                self.ctrl.setAutoFocusMode(dai.CameraControl.AutoFocusMode.CONTINUOUS_VIDEO)
-                self.ctrl.setAutoFocusTrigger()  # Trigger autofocus
-            case False:
-                self.ctrl.setAutoFocusMode(dai.CameraControl.AutoFocusMode.OFF)
-                self._set_focus()
-        self.control_queue.send(self.ctrl)
+        if self.has_AF:
+            self.auto_focus = not self.auto_focus
+            if report:
+                self._set_osd_message(f'toggle auto focus {self.auto_focus}')
+            match self.auto_focus:
+                case True:
+                    self.ctrl.setAutoFocusMode(dai.CameraControl.AutoFocusMode.CONTINUOUS_VIDEO)
+                    self.ctrl.setAutoFocusTrigger()  # Trigger autofocus
+                case False:
+                    self.ctrl.setAutoFocusMode(dai.CameraControl.AutoFocusMode.OFF)
+                    self._set_focus()
+            self.control_queue.send(self.ctrl)
+        else:
+            self._set_osd_message('camera does not support focus')
 
     def _set_focus(self, value_shift: int = 0):
         """
         This will send an autofocus adjustment to the camera.
         """
-        if not self.auto_focus:
-            self.focus += value_shift
-            self.focus = np.clip(self.focus, 0, 255)
-            self.ctrl.setManualFocus(self.focus)
-            self.control_queue.send(self.ctrl)
-            self._set_osd_message(f'focus {value_shift}, now {self.focus}')
+        if self.has_AF:
+            if not self.auto_focus:
+                self.focus += value_shift
+                self.focus = np.clip(self.focus, 0, 255)
+                self.ctrl.setManualFocus(self.focus)
+                self.control_queue.send(self.ctrl)
+                self._set_osd_message(f'focus {value_shift}, now {self.focus}')
+            else:
+                self._set_osd_message('manual focus disabled')
         else:
-            self._set_osd_message('manual focus disabled')
+            self._set_osd_message('camera does not support focus')
 
-    def _toggle_denoise(self):
+    def _toggle_denoise(self, report: bool = True):
         """
         Enable / disable the de-noising filters.
         """
@@ -158,7 +194,8 @@ class Camera(CaptureBase):
                 self.ctrl.setChromaDenoise(0)
                 self.ctrl.setLumaDenoise(0)
         self.control_queue.send(self.ctrl)
-        self._set_osd_message(f"denoising: {self.denoise}")
+        if report:
+            self._set_osd_message(f"denoising: {self.denoise}")
 
     def _focus_control(self):
         """
@@ -207,6 +244,11 @@ class Camera(CaptureBase):
         """
 
         with dai.Device(self.pipeline) as device:
+            self.device = device
+
+            specs = self.get_specs()
+            print(specs)
+
             q_cam = device.getOutputQueue(name="cam", maxSize=4, blocking=False)
             q_manip = device.getOutputQueue(name="manip", maxSize=4, blocking=False)
             q_nn = device.getOutputQueue(name="nn", maxSize=4, blocking=False)
@@ -215,8 +257,10 @@ class Camera(CaptureBase):
 
             self.set_times()
 
+            self._toggle_denoise(report=False)
+            self._toggle_denoise(report=False)
             self.auto_focus = False
-            self._toggle_focus()
+            self._toggle_focus(report=False)
 
             while not self.term:
                 in_cam = q_cam.get()
