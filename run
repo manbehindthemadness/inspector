@@ -1,0 +1,20 @@
+#!/bin/bash
+
+SYMLINK=~/run
+
+if [ ! -L "$SYMLINK" ]; then
+  echo "Creating symlink to $SYMLINK..."
+  ln -s "$(realpath "$0")" "$SYMLINK"
+fi
+
+cd "$HOME/inspector" || exit
+if ping -c 1 google.com &> /dev/null
+then
+  echo "Internet connection detected, updating software..."
+  git pull
+  echo "Update complete"
+else
+  echo "Internet connection not detected, skipping software update"
+fi
+source "$HOME/venv/bin/activate"
+"$HOME/venv/bin/python" -c 'from inspector.main import cam'
