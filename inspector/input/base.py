@@ -10,6 +10,7 @@ class CaptureBase:
     Load an image from file and process it.
     """
     term = False
+    threshold = 0.4
 
     image_dir = '~/Pictures/'
 
@@ -39,7 +40,6 @@ class CaptureBase:
         self.debug = debug
         self.preprocess = preprocess
         self.draw = draw
-        self.threshold = 0.2
 
         self.plot_boxes = plot_boxes
         self.transform_boxes = transform_boxes
@@ -51,6 +51,22 @@ class CaptureBase:
         Bails us out of the run time.
         """
         self.term = True
+
+    def _set_thresh(self, key):
+        """
+        This will change the NN threshold value we pass to the callback.
+        """
+        switch = False
+        match key:
+            case 43:  # Num plus
+                switch = True
+                self.threshold += 0.1
+            case 45:  # Nom minus
+                switch = True
+                self.threshold -= 0.1
+        if switch:
+            self.threshold = np.around(np.clip(self.threshold, 0.0, 1.0), decimals=1)
+            self._set_osd_message(f"detection threshold: {self.threshold}")
 
     def _toggle_preprocessing(self):
         """
@@ -82,16 +98,6 @@ class CaptureBase:
             cv2.imwrite(target_file, image)
             message += f"SAVED: {target_file}\n"
         self._set_osd_message(message, upper=False)
-
-    @staticmethod
-    def add_noise(image: np.ndarray, mean: float = 0, std: float = 10) -> np.ndarray:
-        """
-        Add monochromatic Gaussian noise to the image.
-        """
-        noise = np.random.normal(mean, std, image.shape[:2]).astype(np.uint8)
-        noise = np.stack((noise, noise, noise), axis=-1)
-        noisy_image = cv2.subtract(image, noise)
-        return noisy_image
 
     def prepare_regions(
             self,
@@ -230,7 +236,13 @@ class CaptureBase:
         self.counter = 0
         self.fps = 0
 
-    def _run(self, image_path: str, callback: any = None, thresh: float = .4, fuzz: [tuple[int, int], None] = None):
+    def _run(
+            self,
+            image_path: str,
+            callback: any = None,  # Neural net.
+            preprocess_callback: any = None,  # Alter image before any other processing.
+            key_callback: any = None  # Capture keystrokes (requires preprocessor).
+    ):
         """
         This is the application capture loop.
         """
@@ -243,18 +255,20 @@ class CaptureBase:
 
         self.set_times()
 
-        while True:
+        while not self.term:
             frame = np.array(original_frame)  # Duplicate the image mat.
-            if fuzz:
-                mean, std = fuzz
-                frame = self.add_noise(frame, mean, std)
+
+            if preprocess_callback is not None:
+                if key_callback is not None:
+                    key_callback()
+                frame = preprocess_callback(frame)
 
             # Simulate detection outputs
             detection_boxes = np.random.rand(100, 4)  # Dummy detection boxes
             detection_scores = np.random.rand(100)  # Dummy detection scores
 
             focus_frame, boxes, colors, scores, origins, target_size, data = self.prepare_regions(
-                frame, thresh, detection_scores, detection_boxes, callback
+                frame, self.threshold, detection_scores, detection_boxes, callback
             )
 
             # draw boxes
@@ -263,8 +277,3 @@ class CaptureBase:
             self.viewer(
                 frame, focus_frame, data, origins, target_size,
             )
-
-            if cv2.waitKey(1) == ord('q'):
-                break
-
-        cv2.destroyAllWindows()

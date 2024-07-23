@@ -1,8 +1,11 @@
 import os
 from inspector.inference import Predictor
 
+cwd = os.path.dirname(os.path.abspath(__file__))
+
 USE_OAK = True  # Toggle this to use the camera or a still image.
-threshold = 0.4  # Detection threshold
+MODEL_PATH = f'{cwd}/models/medium.pt'
+IMAGE_PATH = 'test.png'
 kwargs = dict()
 
 if USE_OAK:
@@ -10,26 +13,17 @@ if USE_OAK:
 else:
     from .input.still import StillImage as Camera
     kwargs.update({
-        'image_path': 'test.png',  # or whatever still image you choose.
-        'fuzz': (1.0, 0.5)  # This adds fake camera transistor noise.
+        'image_path': IMAGE_PATH,  # or whatever still image you choose.
     })
 
-
-cwd = os.path.dirname(os.path.abspath(__file__))
-
 cam = Camera(
-    debug=False,
-    # preprocess=False,
-    # draw=False
 )
 predictor = Predictor(
-    model_path=f'{cwd}/models/medium.pt',
-    # draw=True,
+    model_path=MODEL_PATH,
 )
 
 kwargs.update({
     'callback': predictor.predict,
-    'thresh': threshold
 })
 
 cam.run(**kwargs)

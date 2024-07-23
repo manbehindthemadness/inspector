@@ -142,7 +142,10 @@ class Camera(CaptureBase):
                   "[ (7) focus +1 ][ (8) focus +8 ][ (9) focus +32 ]\n\n"
                   "[ (4) ------ ][ (5) denoiser ][ (6) ------- ]\n\n"
                   "[ (1) focus -1 ][ (2) focus -8 ][ (3) focus -32 ]\n\n"
-                  f"[ (0) toggle autofocus ][ (.) toggle preprocess ]{self.specs}")
+                  f"[ (0) toggle autofocus ][ (.) toggle preprocess ]\n"
+                  "plus - raise detection threshold 0.1\n"
+                  "minus - lower detection threshold 0.1"
+                  f"{self.specs}")
 
         return result
 
@@ -237,6 +240,7 @@ class Camera(CaptureBase):
                 self.last_opacity = float(self.osd_opacity)
                 self.osd_opacity = 1.0
                 self._set_osd_message(self.get_help(), 120, upper=False)
+        self._set_thresh(key)
 
     def run(self, callback: any = None, thresh: float = .4):
         """
