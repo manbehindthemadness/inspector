@@ -242,7 +242,7 @@ class Camera(CaptureBase):
                 self._set_osd_message(self.get_help(), 120, upper=False)
         self._set_thresh(key)
 
-    def run(self, callback: any = None, thresh: float = .4):
+    def run(self, callback: any = None):
         """
         This is the application capture loop.
         """
@@ -283,7 +283,7 @@ class Camera(CaptureBase):
                 detection_scores = np.array(in_nn.getLayerFp16("ExpandDims_2")).reshape((100,))  # noqa
 
                 focus_frame, boxes, colors, scores, origins, target_size, data = self.prepare_regions(
-                    frame, thresh, detection_scores, detection_boxes, callback
+                    frame, self.threshold, detection_scores, detection_boxes, callback
                 )
 
                 # draw boxes
