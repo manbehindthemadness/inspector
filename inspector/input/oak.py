@@ -1,8 +1,10 @@
 import cv2
+import time
 import depthai as dai
 import numpy as np
 import blobconverter
 from inspector.input.base import CaptureBase
+from threading import Thread
 
 CAMERA_MODELS = [
     'oak-d',
@@ -140,7 +142,7 @@ class Camera(CaptureBase):
                   "H - Display this message\n\n"
                   "Numpad:\n\n"
                   "[ (7) focus +1 ][ (8) focus +8 ][ (9) focus +32 ]\n\n"
-                  "[ (4) ------ ][ (5) denoiser ][ (6) ------- ]\n\n"
+                  "[ (4) snapAF ][ (5) denoiser ][ (6) ------- ]\n\n"
                   "[ (1) focus -1 ][ (2) focus -8 ][ (3) focus -32 ]\n\n"
                   f"[ (0) toggle autofocus ][ (.) toggle preprocess ]\n"
                   "plus - raise detection threshold 0.1\n"
@@ -163,12 +165,27 @@ class Camera(CaptureBase):
                     self.ctrl.setAutoFocusTrigger()  # Trigger autofocus
                 case False:
                     self.ctrl.setAutoFocusMode(dai.CameraControl.AutoFocusMode.OFF)
-                    self._set_focus()
+                    self._set_focus(report=report)
             self.control_queue.send(self.ctrl)
-        else:
+        elif report:
             self._set_osd_message('camera does not support focus')
 
-    def _set_focus(self, value_shift: int = 0):
+    def _snap_focus(self, report: bool = True):
+        """
+        This quickly toggles the autofocus, it basically forces us to "re-focus" the lense.
+        """
+        if self.AF:
+            print('snapAF')
+            self.last_opacity = float(self.osd_opacity)
+            self.osd_opacity = 0.0
+            self._set_osd_message('|\t.\t|')
+            self._toggle_focus(report=False)
+            time.sleep(0.5)
+            self._toggle_focus(report=False)
+        elif report:
+            self._set_osd_message('camera does not support focus')
+
+    def _set_focus(self, value_shift: int = 0, report: bool = True):
         """
         This will send an autofocus adjustment to the camera.
         """
@@ -178,11 +195,14 @@ class Camera(CaptureBase):
                 self.focus = np.clip(self.focus, 0, 255)
                 self.ctrl.setManualFocus(self.focus)
                 self.control_queue.send(self.ctrl)
-                self._set_osd_message(f'focus {value_shift}, now {self.focus}')
+                if report:
+                    self._set_osd_message(f'focus {value_shift}, now {self.focus}')
             else:
-                self._set_osd_message('manual focus disabled')
+                if report:
+                    self._set_osd_message('manual focus disabled')
         else:
-            self._set_osd_message('camera does not support focus')
+            if report:
+                self._set_osd_message('camera does not support focus')
 
     def _toggle_denoise(self, report: bool = True):
         """
@@ -236,6 +256,9 @@ class Camera(CaptureBase):
                 self._toggle_preprocessing()
             case 53:  # Num 5
                 self._toggle_denoise()
+            case 52:  # Num 4
+                thread = Thread(target=self._snap_focus(), daemon=True)
+                thread.start()
             case 104:  # Keyboard H
                 self.last_opacity = float(self.osd_opacity)
                 self.osd_opacity = 1.0

@@ -139,6 +139,23 @@ class CaptureBase:
         Render text and display final output on the screen.
         """
 
+        def put_text_with_tabs(image, text, start_x, start_y, font, font_scale, color, thickness, tab_width):
+            # Split the text into parts where \t occurs
+            parts = text.split('\t')
+
+            # Current x position to start placing text
+            current_x = start_x
+
+            for part in parts:
+                # Place the part of the text on the image
+                cv2.putText(image, part, (current_x, start_y), font, font_scale, color, thickness, cv2.LINE_AA)
+
+                # Calculate the size of the part of the text
+                text_size = cv2.getTextSize(part, font, font_scale, thickness)[0]
+
+                # Update current x position to the end of the current part plus the tab width
+                current_x += text_size[0] + tab_width
+
         def draw_centered_osd_message(image: np.ndarray, backdrop: bool = True):
             """
             Draws an On-Screen Display (OSD) message centered on the given image.
@@ -146,8 +163,9 @@ class CaptureBase:
             Args:
                 image (np.ndarray): The image on which to draw the message.
                 backdrop (bool): If True, a semi-transparent black backdrop is drawn behind
-                                    the text for better visibility.
+                                 the text for better visibility.
             """
+
             osd_origins = list()
             x1s, x2s, y1s, y2s = list(), list(), list(), list()
             font = self.font
@@ -156,6 +174,7 @@ class CaptureBase:
 
             text_color = (255, 255, 255)
             backdrop_color = (0, 0, 0)
+            tab_width = 100  # Adjust this value to simulate a tab
 
             lines = self.osd_message.split('\n')
             (text_width, text_height), baseline = cv2.getTextSize(lines[0], font, font_scale, font_thickness)
@@ -164,14 +183,19 @@ class CaptureBase:
             start_y = (image.shape[0] - total_text_height) // 2 + text_height
 
             for i, line in enumerate(lines):
-                (line_width, _), _ = cv2.getTextSize(line, font, font_scale, font_thickness)
-                start_x = (image.shape[1] - line_width) // 2
+                # Calculate total width by adding width of each part split by tabs
+                parts = line.split('\t')
+                total_line_width = sum(
+                    cv2.getTextSize(part, font, font_scale, font_thickness)[0][0] for part in parts) + (
+                                               len(parts) - 1) * tab_width
+
+                start_x = (image.shape[1] - total_line_width) // 2
                 y = start_y + i * line_height
 
                 if backdrop:
                     x1s.append(start_x - 5)
                     y1s.append(y - text_height - 5)
-                    x2s.append(start_x + line_width + 5)
+                    x2s.append(start_x + total_line_width + 5)
                     y2s.append(y + baseline + 5)
 
                 osd_origins.append((line, start_x, y))
@@ -186,9 +210,7 @@ class CaptureBase:
 
             for i in osd_origins:
                 line, start_x, y = i
-                cv2.putText(
-                    image, line, (start_x, y), font, font_scale, text_color, font_thickness, lineType=cv2.LINE_AA
-                )
+                put_text_with_tabs(image, line, start_x, y, font, font_scale, text_color, font_thickness, tab_width)
 
         if data is not None:  # Draw the boxes from the YOLO model.
             cropped_size = target_size, target_size
